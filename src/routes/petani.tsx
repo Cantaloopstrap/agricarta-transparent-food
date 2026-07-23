@@ -49,14 +49,37 @@ const DATE_FILTERS = [
   { value: "month", label: "Bulan Ini" },
 ];
 
+const SIMULATED_COMMODITIES = [
+  { commodity: "Cabai Rawit", weightKg: 50, farmer: "Pak Joko", region: "Kediri" },
+  { commodity: "Padi", weightKg: 200, farmer: "Bu Ani", region: "Karawang" },
+  { commodity: "Jagung", weightKg: 150, farmer: "Pak Herman", region: "Blitar" },
+  { commodity: "Bawang Putih", weightKg: 30, farmer: "Bu Sari", region: "Tegal" },
+];
+
 function DashboardPetani() {
   const [query, setQuery] = useState("");
   const [dateFilter, setDateFilter] = useState("all");
+  const [harvests, setHarvests] = useState<Harvest[]>(HARVESTS);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return HARVESTS.filter((h) => (q ? h.commodity.toLowerCase().includes(q) : true));
-  }, [query]);
+    return harvests.filter((h) => (q ? h.commodity.toLowerCase().includes(q) : true));
+  }, [query, harvests]);
+
+  const simulateWebhook = () => {
+    const pick = SIMULATED_COMMODITIES[Math.floor(Math.random() * SIMULATED_COMMODITIES.length)];
+    const now = new Date();
+    const newHarvest: Harvest = {
+      id: `sim-${now.getTime()}`,
+      commodity: pick.commodity,
+      weightKg: pick.weightKg,
+      farmer: pick.farmer,
+      region: pick.region,
+      date: now.toISOString().slice(0, 10),
+    };
+    setHarvests((prev) => [newHarvest, ...prev]);
+  };
+
 
   return (
     <div className="min-h-screen bg-agri-cream">
