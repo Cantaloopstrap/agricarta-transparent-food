@@ -145,6 +145,7 @@ function Landing() {
           </div>
         </div>
       </section>
+      {payOpen && <PaymentModal onClose={() => setPayOpen(false)} />}
     </div>
   );
 }
