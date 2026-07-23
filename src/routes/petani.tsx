@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Search, ShieldCheck, ChevronDown } from "lucide-react";
+import { Search, ShieldCheck, ChevronDown, Zap } from "lucide-react";
 import { GlobalNavbar } from "@/components/GlobalNavbar";
 
 export const Route = createFileRoute("/petani")({
