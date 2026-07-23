@@ -80,10 +80,10 @@ function formatRupiah(n: number) {
   return `Rp ${n.toLocaleString("id-ID")}`;
 }
 
-function BrutalTooltip({ active, payload, label }: TooltipProps<number, string>) {
+function BrutalTooltip({ active, payload, label }: any) {
   if (!active || !payload || payload.length === 0) return null;
-  const actual = payload.find((p) => p.dataKey === "actual")?.value;
-  const predicted = payload.find((p) => p.dataKey === "predicted")?.value;
+  const actual = payload.find((p: any) => p.dataKey === "actual")?.value;
+  const predicted = payload.find((p: any) => p.dataKey === "predicted")?.value;
   return (
     <div className="bg-white border-2 border-agri-dark p-3 font-bold text-agri-dark shadow-brutal-sm rounded-md">
       <div className="font-black text-sm mb-1">Hari {label}</div>
