@@ -136,11 +136,12 @@ function Landing() {
               depan. Ideal untuk petani, pedagang, dan distributor.
             </p>
             <button
-              onClick={() => alert("Open Payment Modal")}
+              onClick={() => setPayOpen(true)}
               className="mt-6 bg-agri-dark text-white font-black text-lg px-8 py-4 border-4 border-agri-dark rounded-xl shadow-brutal-sm transition-transform duration-200 hover:-translate-y-1 hover:shadow-brutal-hover"
             >
               Gabung Premium
             </button>
+
           </div>
         </div>
       </section>
