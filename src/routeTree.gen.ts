@@ -10,11 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PetaniRouteImport } from './routes/petani'
+import { Route as DistributorRouteImport } from './routes/distributor'
 import { Route as IndexRouteImport } from './routes/index'
 
 const PetaniRoute = PetaniRouteImport.update({
   id: '/petani',
   path: '/petani',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DistributorRoute = DistributorRouteImport.update({
+  id: '/distributor',
+  path: '/distributor',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -25,27 +31,31 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/distributor': typeof DistributorRoute
   '/petani': typeof PetaniRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/distributor': typeof DistributorRoute
   '/petani': typeof PetaniRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/distributor': typeof DistributorRoute
   '/petani': typeof PetaniRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/petani'
+  fullPaths: '/' | '/distributor' | '/petani'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/petani'
-  id: '__root__' | '/' | '/petani'
+  to: '/' | '/distributor' | '/petani'
+  id: '__root__' | '/' | '/distributor' | '/petani'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DistributorRoute: typeof DistributorRoute
   PetaniRoute: typeof PetaniRoute
 }
 
@@ -56,6 +66,13 @@ declare module '@tanstack/react-router' {
       path: '/petani'
       fullPath: '/petani'
       preLoaderRoute: typeof PetaniRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/distributor': {
+      id: '/distributor'
+      path: '/distributor'
+      fullPath: '/distributor'
+      preLoaderRoute: typeof DistributorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -70,6 +87,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DistributorRoute: DistributorRoute,
   PetaniRoute: PetaniRoute,
 }
 export const routeTree = rootRouteImport
