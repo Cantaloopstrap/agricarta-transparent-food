@@ -142,6 +142,15 @@ function DashboardPetani() {
           </div>
         )}
       </section>
+
+      {/* Floating Simulate Bot Webhook button */}
+      <button
+        onClick={simulateWebhook}
+        className="fixed bottom-6 right-6 z-40 bg-agri-amber text-agri-dark font-black px-5 py-4 border-4 border-agri-dark rounded-xl shadow-brutal-base transition-transform duration-200 hover:-translate-y-1 hover:shadow-brutal-hover flex items-center gap-2 uppercase tracking-tight"
+      >
+        <Zap className="w-5 h-5" strokeWidth={3} />
+        Simulate Bot Webhook
+      </button>
     </div>
   );
 }
