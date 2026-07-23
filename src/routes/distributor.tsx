@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { X, Star, MapPin } from "lucide-react";
+import { X, Star, MapPin, Loader2, AlertCircle } from "lucide-react";
 import { GlobalNavbar } from "@/components/GlobalNavbar";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/distributor")({
   head: () => ({
@@ -39,39 +41,52 @@ type Distributor = {
   persona: Persona;
 };
 
-const DISTRIBUTORS: Distributor[] = [
-  {
-    id: "1",
-    name: "UD. Makmur Tani",
-    region: "Brebes, Jawa Tengah",
-    rating: 4.8,
-    persona: { kualitas: 75, disiplin: 90, sikap: 85, kejujuran: 95 },
-  },
-  {
-    id: "2",
-    name: "PT. Agro Sejahtera",
-    region: "Malang, Jawa Timur",
-    rating: 3.9,
-    persona: { kualitas: 80, disiplin: 70, sikap: 78, kejujuran: 82 },
-  },
-  {
-    id: "3",
-    name: "CV. Panen Raya",
-    region: "Bandung, Jawa Barat",
-    rating: 4.5,
-    persona: { kualitas: 88, disiplin: 82, sikap: 90, kejujuran: 87 },
-  },
-  {
-    id: "4",
-    name: "UD. Hasil Bumi",
-    region: "Nganjuk, Jawa Timur",
-    rating: 4.2,
-    persona: { kualitas: 70, disiplin: 85, sikap: 75, kejujuran: 88 },
-  },
-];
-
 function DashboardDistributor() {
+  const [distributors, setDistributors] = useState<Distributor[]>([]);
   const [selected, setSelected] = useState<Distributor | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchDistributors() {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const { data, error: dbError } = await supabase
+          .from("distributors")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (dbError) throw dbError;
+
+        if (data && data.length > 0) {
+          const mapped: Distributor[] = data.map((d: any) => ({
+            id: d.id,
+            name: d.name || "Distributor Terdaftar",
+            region: d.phone ? `WA: ${d.phone}` : "Jawa Tengah",
+            rating: d.avg_score ? Math.min(5, Math.max(1, parseFloat((d.avg_score / 20).toFixed(1)))) : 4.5,
+            persona: {
+              kualitas: Number(d.score_kualitas) || 0,
+              disiplin: Number(d.score_disiplin) || 0,
+              sikap: Number(d.score_sikap) || 0,
+              kejujuran: Number(d.score_kejujuran) || 0,
+            },
+          }));
+          setDistributors(mapped);
+        } else {
+          setDistributors([]);
+        }
+      } catch (err: any) {
+        console.error("Error fetching distributors:", err);
+        setError("Gagal mengambil data distributor dari database.");
+        toast.error("Gagal mengambil data distributor.");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchDistributors();
+  }, []);
 
   return (
     <div className="min-h-screen bg-agri-cream">
@@ -85,15 +100,35 @@ function DashboardDistributor() {
           Persona Distributor
         </h1>
         <p className="mt-3 font-bold text-agri-dark/80 max-w-2xl">
-          Klik salah satu kartu untuk melihat persona lengkap, dihitung dari webhook Google Form.
+          Klik salah satu kartu untuk melihat persona lengkap, disinkronkan secara real-time via Webhook Google Form.
         </p>
       </header>
 
-      <section className="grid grid-cols-1 sm:grid-cols-2 gap-8 px-6 pb-16 max-w-7xl mx-auto">
-        {DISTRIBUTORS.map((d) => (
-          <DistributorCard key={d.id} distributor={d} onClick={() => setSelected(d)} />
-        ))}
-      </section>
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center py-20">
+          <Loader2 className="w-12 h-12 text-agri-dark animate-spin mb-4" strokeWidth={3} />
+          <p className="font-black text-agri-dark">Mengambil data distributor dari Supabase...</p>
+        </div>
+      ) : error ? (
+        <div className="px-6 max-w-7xl mx-auto py-12 text-center">
+          <div className="inline-flex items-center gap-2 bg-red-100 border-4 border-agri-dark p-6 rounded-xl shadow-brutal-base text-red-700 font-bold">
+            <AlertCircle className="w-6 h-6" />
+            {error}
+          </div>
+        </div>
+      ) : distributors.length === 0 ? (
+        <div className="px-6 max-w-7xl mx-auto py-12 text-center">
+          <div className="bg-white border-4 border-agri-dark p-8 rounded-xl shadow-brutal-base font-bold text-agri-dark">
+            Belum ada data rating distributor yang disinkronkan dari Google Form.
+          </div>
+        </div>
+      ) : (
+        <section className="grid grid-cols-1 sm:grid-cols-2 gap-8 px-6 pb-16 max-w-7xl mx-auto">
+          {distributors.map((d) => (
+            <DistributorCard key={d.id} distributor={d} onClick={() => setSelected(d)} />
+          ))}
+        </section>
+      )}
 
       {selected && <PersonaModal distributor={selected} onClose={() => setSelected(null)} />}
     </div>

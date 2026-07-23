@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { FileDown, FileText, Sparkles, Loader2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { FileDown, FileText, Sparkles, Loader2, AlertCircle } from "lucide-react";
 import {
   Area,
   CartesianGrid,
@@ -34,7 +34,6 @@ export const Route = createFileRoute("/premium")({
   component: DashboardPremium,
 });
 
-// LSTM output shape per spec
 type HistoricalRow = { date: string; price: number };
 type PredictionRow = {
   date: string;
@@ -42,26 +41,6 @@ type PredictionRow = {
   lower_bound: number;
   upper_bound: number;
 };
-
-const HISTORICAL: HistoricalRow[] = [
-  { date: "2026-07-17", price: 28000 },
-  { date: "2026-07-18", price: 29500 },
-  { date: "2026-07-19", price: 30200 },
-  { date: "2026-07-20", price: 31000 },
-  { date: "2026-07-21", price: 30500 },
-  { date: "2026-07-22", price: 32000 },
-  { date: "2026-07-23", price: 33500 },
-];
-
-const PREDICTION: PredictionRow[] = [
-  { date: "2026-07-24", predicted_price: 34000, lower_bound: 33200, upper_bound: 34800 },
-  { date: "2026-07-25", predicted_price: 35200, lower_bound: 34200, upper_bound: 36200 },
-  { date: "2026-07-26", predicted_price: 34800, lower_bound: 33600, upper_bound: 36000 },
-  { date: "2026-07-27", predicted_price: 36000, lower_bound: 34600, upper_bound: 37400 },
-  { date: "2026-07-28", predicted_price: 37500, lower_bound: 35900, upper_bound: 39100 },
-  { date: "2026-07-29", predicted_price: 37000, lower_bound: 35200, upper_bound: 38800 },
-  { date: "2026-07-30", predicted_price: 38500, lower_bound: 36500, upper_bound: 40500 },
-];
 
 type ChartRow = {
   date: string;
@@ -71,34 +50,8 @@ type ChartRow = {
   band?: [number, number];
 };
 
-function buildChartData(): ChartRow[] {
-  const shortDay = (iso: string) => {
-    const d = new Date(iso);
-    return `${d.getDate()}/${d.getMonth() + 1}`;
-  };
-  const rows: ChartRow[] = HISTORICAL.map((h) => ({
-    date: h.date,
-    day: shortDay(h.date),
-    actual: h.price,
-  }));
-  // Bridge point
-  const lastActual = HISTORICAL[HISTORICAL.length - 1];
-  rows[rows.length - 1].predicted = lastActual.price;
-  rows[rows.length - 1].band = [lastActual.price, lastActual.price];
-
-  for (const p of PREDICTION) {
-    rows.push({
-      date: p.date,
-      day: shortDay(p.date),
-      predicted: p.predicted_price,
-      band: [p.lower_bound, p.upper_bound],
-    });
-  }
-  return rows;
-}
-
 function formatRupiah(n: number) {
-  return `Rp ${n.toLocaleString("id-ID")}`;
+  return `Rp ${Math.round(n).toLocaleString("id-ID")}`;
 }
 
 function BrutalTooltip({ active, payload, label }: any) {
@@ -110,7 +63,7 @@ function BrutalTooltip({ active, payload, label }: any) {
     | undefined;
   return (
     <div className="bg-white border-2 border-agri-dark p-3 font-bold text-agri-dark shadow-brutal-sm rounded-md">
-      <div className="font-black text-sm mb-1">Hari {label}</div>
+      <div className="font-black text-sm mb-1">Tanggal {label}</div>
       {typeof actual === "number" && (
         <div className="flex items-center gap-2 text-sm">
           <span className="inline-block w-3 h-3 bg-agri-forest border border-agri-dark" />
@@ -125,7 +78,7 @@ function BrutalTooltip({ active, payload, label }: any) {
       )}
       {band && band[0] !== band[1] && (
         <div className="text-xs mt-1 text-agri-dark/70">
-          CI: {formatRupiah(band[0])} – {formatRupiah(band[1])}
+          CI (Rentang): {formatRupiah(band[0])} – {formatRupiah(band[1])}
         </div>
       )}
     </div>
@@ -133,25 +86,96 @@ function BrutalTooltip({ active, payload, label }: any) {
 }
 
 function DashboardPremium() {
-  const DATA = useMemo(buildChartData, []);
+  const [commodity, setCommodity] = useState("jagung");
+  const [commodityName, setCommodityName] = useState("Jagung");
+  const [historicalData, setHistoricalData] = useState<HistoricalRow[]>([]);
+  const [predictionData, setPredictionData] = useState<PredictionRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
 
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoading(true);
+    setError(null);
+
+    const mlApiUrl = import.meta.env.VITE_PYTHON_API_URL || "http://localhost:8000";
+
+    fetch(`${mlApiUrl}/api/prices/predictions?commodity=${commodity}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Gagal mengambil data prediksi dari ML Engine.");
+        return res.json();
+      })
+      .then((data) => {
+        if (isMounted) {
+          setCommodityName(data.commodity || commodity);
+          setHistoricalData(data.historical || []);
+          setPredictionData(data.prediction || []);
+          setIsLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (isMounted) {
+          console.error("Error fetching ML prediction:", err);
+          setError(err.message || "Gagal memuat data dari Python ML Engine.");
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [commodity]);
+
+  const chartData = useMemo(() => {
+    if (!historicalData.length && !predictionData.length) return [];
+    
+    const shortDay = (iso: string) => {
+      const d = new Date(iso);
+      return isNaN(d.getTime()) ? iso : `${d.getDate()}/${d.getMonth() + 1}`;
+    };
+
+    const rows: ChartRow[] = historicalData.map((h) => ({
+      date: h.date,
+      day: shortDay(h.date),
+      actual: h.price,
+    }));
+
+    if (rows.length > 0 && historicalData.length > 0) {
+      const lastActual = historicalData[historicalData.length - 1];
+      rows[rows.length - 1].predicted = lastActual.price;
+      rows[rows.length - 1].band = [lastActual.price, lastActual.price];
+    }
+
+    for (const p of predictionData) {
+      rows.push({
+        date: p.date,
+        day: shortDay(p.date),
+        predicted: p.predicted_price,
+        band: [p.lower_bound, p.upper_bound],
+      });
+    }
+
+    return rows;
+  }, [historicalData, predictionData]);
+
   const handleCsv = () => {
-    console.log("Generating file client-side...");
+    if (!historicalData.length && !predictionData.length) return;
+    
     const header = "date,type,price,lower_bound,upper_bound";
-    const historicalRows = HISTORICAL.map(
-      (h) => `${h.date},actual,${h.price},,`,
+    const historicalRows = historicalData.map(
+      (h) => `${h.date},actual,${h.price},,`
     );
-    const predictionRows = PREDICTION.map(
+    const predictionRows = predictionData.map(
       (p) =>
-        `${p.date},predicted,${p.predicted_price},${p.lower_bound},${p.upper_bound}`,
+        `${p.date},predicted,${p.predicted_price},${p.lower_bound},${p.upper_bound}`
     );
     const csv = [header, ...historicalRows, ...predictionRows].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "Agrikarta_Report.csv";
+    a.download = `Agrikarta_Report_${commodityName}_${Date.now()}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -159,12 +183,78 @@ function DashboardPremium() {
   };
 
   const handlePdf = () => {
-    console.log("Generating file client-side...");
     setPdfLoading(true);
-    setTimeout(() => {
+    try {
+      const reportTitle = `Laporan Prediksi Harga ${commodityName} - Agrikarta`;
+      const dateStr = new Date().toLocaleDateString("id-ID");
+      
+      let htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>${reportTitle}</title>
+          <style>
+            body { font-family: 'Helvetica', sans-serif; padding: 30px; color: #283F24; }
+            h1 { color: #283F24; font-size: 24px; border-bottom: 4px solid #FFBF00; padding-bottom: 8px; }
+            .meta { font-size: 12px; margin-bottom: 20px; color: #555; }
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+            th, td { border: 2px solid #283F24; padding: 8px 12px; text-align: left; font-size: 12px; }
+            th { background-color: #FFBF00; }
+            tr:nth-child(even) { background-color: #FFF78D; }
+          </style>
+        </head>
+        <body>
+          <h1>🌾 Agrikarta - ${reportTitle}</h1>
+          <div class="meta">Tanggal Cetak: ${dateStr} | Komoditas: ${commodityName}</div>
+          <h3>Historis & Proyeksi 7 Hari Ke Depan</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Tanggal</th>
+                <th>Tipe</th>
+                <th>Harga (Rp)</th>
+                <th>CI Batas Bawah</th>
+                <th>CI Batas Atas</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${historicalData.map(h => `
+                <tr>
+                  <td>${h.date}</td>
+                  <td>Aktual</td>
+                  <td>Rp ${h.price.toLocaleString("id-ID")}</td>
+                  <td>-</td>
+                  <td>-</td>
+                </tr>
+              `).join("")}
+              ${predictionData.map(p => `
+                <tr>
+                  <td>${p.date}</td>
+                  <td>Prediksi (ML)</td>
+                  <td>Rp ${p.predicted_price.toLocaleString("id-ID")}</td>
+                  <td>Rp ${p.lower_bound.toLocaleString("id-ID")}</td>
+                  <td>Rp ${p.upper_bound.toLocaleString("id-ID")}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </body>
+        </html>
+      `;
+
+      const blob = new Blob([htmlContent], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      const printWindow = window.open(url, "_blank");
+      if (printWindow) {
+        printWindow.onload = () => {
+          printWindow.print();
+        };
+      }
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+    } finally {
       setPdfLoading(false);
-      alert("Simulating PDF download using @react-pdf/renderer...");
-    }, 1500);
+    }
   };
 
   return (
@@ -177,73 +267,109 @@ function DashboardPremium() {
         Premium Access: Prediksi Harga Komoditas H+7
       </div>
 
-      <div className="mt-6 mx-6 lg:mx-auto max-w-7xl">
-        <h2 className="text-xl md:text-2xl font-black text-agri-dark tracking-tight">
-          Cabai Rawit — Proyeksi 7 Hari
-        </h2>
-        <p className="font-bold text-agri-dark/70 text-sm">
-          Garis hijau: harga aktual. Garis kuning putus-putus: prediksi ML. Area kuning muda:
-          rentang confidence interval.
-        </p>
+      <div className="mt-6 mx-6 lg:mx-auto max-w-7xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl md:text-2xl font-black text-agri-dark tracking-tight">
+            {commodityName} — Proyeksi 7 Hari
+          </h2>
+          <p className="font-bold text-agri-dark/70 text-sm">
+            Garis hijau: harga aktual. Garis kuning putus-putus: prediksi PyTorch LSTM. Area kuning: confidence interval.
+          </p>
+        </div>
+
+        {/* Commodity Selector */}
+        <div className="flex items-center gap-2">
+          <span className="font-black text-sm uppercase tracking-tight text-agri-dark">Pilih Komoditas:</span>
+          <select
+            value={commodity}
+            onChange={(e) => setCommodity(e.target.value)}
+            className="bg-white border-4 border-agri-dark rounded-xl px-4 py-2 font-black text-agri-dark shadow-brutal-sm outline-none focus:ring-4 focus:ring-agri-amber transition-shadow cursor-pointer"
+          >
+            <option value="jagung">Jagung</option>
+            <option value="cabai">Cabai</option>
+            <option value="padi">Padi</option>
+            <option value="bawang">Bawang</option>
+            <option value="beras">Beras</option>
+            <option value="minyak">Minyak</option>
+          </select>
+        </div>
       </div>
 
-      {/* Recharts container */}
-      <div className="bg-white p-4 md:p-6 border-4 border-agri-dark rounded-xl h-[400px] mt-4 mx-6 lg:mx-auto max-w-7xl shadow-brutal-base">
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={DATA} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
-            <CartesianGrid stroke="#283F24" strokeOpacity={0.15} strokeDasharray="4 4" />
-            <XAxis
-              dataKey="day"
-              stroke="#283F24"
-              strokeWidth={2}
-              tick={{ fill: "#283F24", fontWeight: 700, fontSize: 12 }}
-            />
-            <YAxis
-              stroke="#283F24"
-              strokeWidth={2}
-              tick={{ fill: "#283F24", fontWeight: 700, fontSize: 12 }}
-              tickFormatter={(v) => `${Math.round(v / 1000)}k`}
-              width={44}
-            />
-            <Tooltip content={<BrutalTooltip />} cursor={{ stroke: "#283F24", strokeWidth: 2 }} />
-            <Area
-              type="monotone"
-              dataKey="band"
-              fill="#FFF78D"
-              fillOpacity={0.8}
-              stroke="none"
-              isAnimationActive={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="actual"
-              stroke="#467235"
-              strokeWidth={4}
-              dot={{ fill: "#467235", stroke: "#283F24", strokeWidth: 2, r: 4 }}
-              activeDot={{ r: 8, stroke: "#283F24", strokeWidth: 2, fill: "#467235" }}
-              connectNulls={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="predicted"
-              stroke="#FFBF00"
-              strokeWidth={4}
-              strokeDasharray="5 5"
-              dot={{ fill: "#FFBF00", stroke: "#283F24", strokeWidth: 2, r: 4 }}
-              activeDot={{ r: 8, stroke: "#283F24", strokeWidth: 2, fill: "#FFBF00" }}
-              connectNulls={false}
-            />
-          </ComposedChart>
-        </ResponsiveContainer>
+      {/* Loading / Error / Recharts container */}
+      <div className="bg-white p-4 md:p-6 border-4 border-agri-dark rounded-xl h-[400px] mt-4 mx-6 lg:mx-auto max-w-7xl shadow-brutal-base relative">
+        {isLoading ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 z-10">
+            <Loader2 className="w-12 h-12 text-agri-dark animate-spin mb-3" strokeWidth={3} />
+            <p className="font-black text-agri-dark">Memuat data dari Python ML Engine...</p>
+          </div>
+        ) : error ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white p-6 z-10 text-center">
+            <AlertCircle className="w-12 h-12 text-red-500 mb-3" strokeWidth={3} />
+            <p className="font-black text-red-600 text-lg">{error}</p>
+            <button
+              onClick={() => setCommodity(commodity)}
+              className="mt-4 bg-agri-amber border-2 border-agri-dark font-black px-4 py-2 rounded-lg shadow-brutal-sm"
+            >
+              Coba Lagi
+            </button>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={chartData} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
+              <CartesianGrid stroke="#283F24" strokeOpacity={0.15} strokeDasharray="4 4" />
+              <XAxis
+                dataKey="day"
+                stroke="#283F24"
+                strokeWidth={2}
+                tick={{ fill: "#283F24", fontWeight: 700, fontSize: 12 }}
+              />
+              <YAxis
+                stroke="#283F24"
+                strokeWidth={2}
+                tick={{ fill: "#283F24", fontWeight: 700, fontSize: 12 }}
+                tickFormatter={(v) => `${Math.round(v / 1000)}k`}
+                width={48}
+              />
+              <Tooltip content={<BrutalTooltip />} cursor={{ stroke: "#283F24", strokeWidth: 2 }} />
+              <Area
+                type="monotone"
+                dataKey="band"
+                fill="#FFF78D"
+                fillOpacity={0.8}
+                stroke="none"
+                isAnimationActive={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="actual"
+                stroke="#467235"
+                strokeWidth={4}
+                dot={{ fill: "#467235", stroke: "#283F24", strokeWidth: 2, r: 4 }}
+                activeDot={{ r: 8, stroke: "#283F24", strokeWidth: 2, fill: "#467235" }}
+                connectNulls={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="predicted"
+                stroke="#FFBF00"
+                strokeWidth={4}
+                strokeDasharray="5 5"
+                dot={{ fill: "#FFBF00", stroke: "#283F24", strokeWidth: 2, r: 4 }}
+                activeDot={{ r: 8, stroke: "#283F24", strokeWidth: 2, fill: "#FFBF00" }}
+                connectNulls={false}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
       {/* Action Row */}
       <div className="flex flex-wrap gap-4 mt-6 mx-6 lg:mx-auto max-w-7xl justify-end pb-16">
         <button
           onClick={handlePdf}
-          disabled={pdfLoading}
+          disabled={pdfLoading || isLoading}
           className={`bg-white border-4 border-agri-dark text-agri-dark font-black px-6 py-3 rounded-xl shadow-brutal-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-brutal-base flex items-center gap-2 ${
-            pdfLoading ? "opacity-75 cursor-not-allowed hover:translate-y-0 hover:shadow-brutal-sm" : ""
+            pdfLoading || isLoading ? "opacity-75 cursor-not-allowed hover:translate-y-0 hover:shadow-brutal-sm" : ""
           }`}
         >
           {pdfLoading ? (
@@ -260,7 +386,8 @@ function DashboardPremium() {
         </button>
         <button
           onClick={handleCsv}
-          className="bg-white border-4 border-agri-dark text-agri-dark font-black px-6 py-3 rounded-xl shadow-brutal-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-brutal-base flex items-center gap-2"
+          disabled={isLoading || (!historicalData.length && !predictionData.length)}
+          className="bg-white border-4 border-agri-dark text-agri-dark font-black px-6 py-3 rounded-xl shadow-brutal-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-brutal-base flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <FileDown className="w-5 h-5" strokeWidth={3} />
           Ekspor Data CSV

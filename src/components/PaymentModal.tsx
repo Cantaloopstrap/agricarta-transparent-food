@@ -1,21 +1,53 @@
 import { useState } from "react";
-import { X, CheckCircle2, Loader2, MessageCircle } from "lucide-react";
-import { setPremium } from "@/lib/premium-store";
+import { X, Loader2, MessageCircle, AlertCircle } from "lucide-react";
+import { toast } from "sonner";
 
-type Stage = "form" | "loading" | "success";
+type Stage = "form" | "loading";
 
 export function PaymentModal({ onClose }: { onClose: () => void }) {
   const [phone, setPhone] = useState("");
   const [stage, setStage] = useState<Stage>("form");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!phone.trim()) return;
+
     setStage("loading");
-    setTimeout(() => {
-      setStage("success");
-      setPremium(true);
-    }, 2000);
+    setErrorMessage(null);
+
+    const nodeApiUrl = import.meta.env.VITE_NODE_API_URL || "http://localhost:5000";
+
+    try {
+      const response = await fetch(`${nodeApiUrl}/api/checkout`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ phone }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Gagal membuat transaksi checkout.");
+      }
+
+      toast.success("Checkout berhasil dibuat! Mengalihkan ke Midtrans...");
+
+      // Redirect user to Midtrans Snap payment gateway
+      if (data.redirect_url) {
+        window.location.href = data.redirect_url;
+      } else {
+        throw new Error("Redirect URL Midtrans tidak ditemukan.");
+      }
+    } catch (err: any) {
+      console.error("Error initiating checkout:", err);
+      const msg = err.message || "Terjadi kesalahan saat menghubungkan ke payment gateway.";
+      setErrorMessage(msg);
+      toast.error(msg);
+      setStage("form");
+    }
   };
 
   return (
@@ -38,8 +70,15 @@ export function PaymentModal({ onClose }: { onClose: () => void }) {
               Gabung Agrikarta Premium
             </h2>
             <p className="mt-2 font-bold text-agri-dark/70 text-sm">
-              Masukkan nomor WhatsApp Anda. Magic Link akan dikirim setelah pembayaran berhasil.
+              Masukkan nomor WhatsApp Anda. Magic Link akan dikirimkan langsung ke WA Anda setelah pembayaran.
             </p>
+
+            {errorMessage && (
+              <div className="mt-4 p-3 bg-red-100 border-2 border-red-500 rounded-lg flex items-center gap-2 text-red-700 text-sm font-bold">
+                <AlertCircle className="w-5 h-5 shrink-0" />
+                {errorMessage}
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
               <label className="block">
@@ -80,28 +119,8 @@ export function PaymentModal({ onClose }: { onClose: () => void }) {
               Menghubungkan ke Midtrans...
             </h3>
             <p className="mt-2 font-bold text-agri-dark/70 text-sm">
-              Jangan tutup jendela ini.
+              Menyiapkan sesi pembayaran aman. Mohon tunggu...
             </p>
-          </div>
-        )}
-
-        {stage === "success" && (
-          <div className="py-4 flex flex-col items-center text-center">
-            <div className="bg-agri-forest text-white border-4 border-agri-dark rounded-full w-16 h-16 flex items-center justify-center shadow-brutal-sm">
-              <CheckCircle2 className="w-8 h-8" strokeWidth={3} />
-            </div>
-            <h3 className="mt-4 text-2xl font-black text-agri-dark tracking-tight">
-              Pembayaran Berhasil!
-            </h3>
-            <p className="mt-2 font-bold text-agri-dark/70 text-sm max-w-xs">
-              Magic Link telah dikirim ke WA Anda. Akses premium sudah aktif.
-            </p>
-            <button
-              onClick={onClose}
-              className="mt-6 bg-agri-dark text-white font-black px-6 py-3 border-4 border-agri-dark rounded-xl shadow-brutal-sm transition-transform duration-200 hover:-translate-y-1 hover:shadow-brutal-hover"
-            >
-              Tutup
-            </button>
           </div>
         )}
       </div>
