@@ -33,9 +33,11 @@ const priceData = [
 ];
 
 function Landing() {
+  const [payOpen, setPayOpen] = useState(false);
   return (
     <div className="min-h-screen bg-agri-cream">
       <GlobalNavbar />
+
 
       {/* Hero */}
       <section className="pt-28 pb-12 px-6 text-center max-w-7xl mx-auto flex flex-col items-center justify-center">
