@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { FileDown, FileText, Sparkles } from "lucide-react";
+import { useMemo, useState } from "react";
+import { FileDown, FileText, Sparkles, Loader2 } from "lucide-react";
 import {
   Area,
   CartesianGrid,
@@ -33,48 +34,68 @@ export const Route = createFileRoute("/premium")({
   component: DashboardPremium,
 });
 
+// LSTM output shape per spec
+type HistoricalRow = { date: string; price: number };
+type PredictionRow = {
+  date: string;
+  predicted_price: number;
+  lower_bound: number;
+  upper_bound: number;
+};
+
+const HISTORICAL: HistoricalRow[] = [
+  { date: "2026-07-17", price: 28000 },
+  { date: "2026-07-18", price: 29500 },
+  { date: "2026-07-19", price: 30200 },
+  { date: "2026-07-20", price: 31000 },
+  { date: "2026-07-21", price: 30500 },
+  { date: "2026-07-22", price: 32000 },
+  { date: "2026-07-23", price: 33500 },
+];
+
+const PREDICTION: PredictionRow[] = [
+  { date: "2026-07-24", predicted_price: 34000, lower_bound: 33200, upper_bound: 34800 },
+  { date: "2026-07-25", predicted_price: 35200, lower_bound: 34200, upper_bound: 36200 },
+  { date: "2026-07-26", predicted_price: 34800, lower_bound: 33600, upper_bound: 36000 },
+  { date: "2026-07-27", predicted_price: 36000, lower_bound: 34600, upper_bound: 37400 },
+  { date: "2026-07-28", predicted_price: 37500, lower_bound: 35900, upper_bound: 39100 },
+  { date: "2026-07-29", predicted_price: 37000, lower_bound: 35200, upper_bound: 38800 },
+  { date: "2026-07-30", predicted_price: 38500, lower_bound: 36500, upper_bound: 40500 },
+];
+
 type ChartRow = {
+  date: string;
   day: string;
   actual?: number;
   predicted?: number;
   band?: [number, number];
 };
 
-function buildData(): ChartRow[] {
-  const historical = [28000, 29500, 30200, 31000, 30500, 32000, 33500];
-  const predicted = [34000, 35200, 34800, 36000, 37500, 37000, 38500];
-  const spread = [800, 1000, 1200, 1400, 1600, 1800, 2000];
+function buildChartData(): ChartRow[] {
+  const shortDay = (iso: string) => {
+    const d = new Date(iso);
+    return `${d.getDate()}/${d.getMonth() + 1}`;
+  };
+  const rows: ChartRow[] = HISTORICAL.map((h) => ({
+    date: h.date,
+    day: shortDay(h.date),
+    actual: h.price,
+  }));
+  // Bridge point
+  const lastActual = HISTORICAL[HISTORICAL.length - 1];
+  rows[rows.length - 1].predicted = lastActual.price;
+  rows[rows.length - 1].band = [lastActual.price, lastActual.price];
 
-  const rows: ChartRow[] = [];
-  const today = new Date();
-
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
+  for (const p of PREDICTION) {
     rows.push({
-      day: `${d.getDate()}/${d.getMonth() + 1}`,
-      actual: historical[6 - i],
+      date: p.date,
+      day: shortDay(p.date),
+      predicted: p.predicted_price,
+      band: [p.lower_bound, p.upper_bound],
     });
   }
-  // Bridge: last actual carries into predicted for a connected line
-  rows[rows.length - 1].predicted = historical[6];
-  rows[rows.length - 1].band = [historical[6], historical[6]];
-
-  for (let i = 1; i <= 7; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    const p = predicted[i - 1];
-    rows.push({
-      day: `${d.getDate()}/${d.getMonth() + 1}`,
-      predicted: p,
-      band: [p - spread[i - 1], p + spread[i - 1]],
-    });
-  }
-
   return rows;
 }
-
-const DATA = buildData();
 
 function formatRupiah(n: number) {
   return `Rp ${n.toLocaleString("id-ID")}`;
@@ -84,6 +105,9 @@ function BrutalTooltip({ active, payload, label }: any) {
   if (!active || !payload || payload.length === 0) return null;
   const actual = payload.find((p: any) => p.dataKey === "actual")?.value;
   const predicted = payload.find((p: any) => p.dataKey === "predicted")?.value;
+  const band = payload.find((p: any) => p.dataKey === "band")?.value as
+    | [number, number]
+    | undefined;
   return (
     <div className="bg-white border-2 border-agri-dark p-3 font-bold text-agri-dark shadow-brutal-sm rounded-md">
       <div className="font-black text-sm mb-1">Hari {label}</div>
@@ -99,18 +123,48 @@ function BrutalTooltip({ active, payload, label }: any) {
           Prediksi: {formatRupiah(predicted)}
         </div>
       )}
+      {band && band[0] !== band[1] && (
+        <div className="text-xs mt-1 text-agri-dark/70">
+          CI: {formatRupiah(band[0])} – {formatRupiah(band[1])}
+        </div>
+      )}
     </div>
   );
 }
 
 function DashboardPremium() {
-  const handlePdf = () => {
-    console.log("Generating file client-side...");
-    alert("PDF (dummy) sedang dibuat client-side.");
-  };
+  const DATA = useMemo(buildChartData, []);
+  const [pdfLoading, setPdfLoading] = useState(false);
+
   const handleCsv = () => {
     console.log("Generating file client-side...");
-    alert("CSV (dummy) sedang dibuat client-side.");
+    const header = "date,type,price,lower_bound,upper_bound";
+    const historicalRows = HISTORICAL.map(
+      (h) => `${h.date},actual,${h.price},,`,
+    );
+    const predictionRows = PREDICTION.map(
+      (p) =>
+        `${p.date},predicted,${p.predicted_price},${p.lower_bound},${p.upper_bound}`,
+    );
+    const csv = [header, ...historicalRows, ...predictionRows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "Agrikarta_Report.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handlePdf = () => {
+    console.log("Generating file client-side...");
+    setPdfLoading(true);
+    setTimeout(() => {
+      setPdfLoading(false);
+      alert("Simulating PDF download using @react-pdf/renderer...");
+    }, 1500);
   };
 
   return (
@@ -187,10 +241,22 @@ function DashboardPremium() {
       <div className="flex flex-wrap gap-4 mt-6 mx-6 lg:mx-auto max-w-7xl justify-end pb-16">
         <button
           onClick={handlePdf}
-          className="bg-white border-4 border-agri-dark text-agri-dark font-black px-6 py-3 rounded-xl shadow-brutal-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-brutal-base flex items-center gap-2"
+          disabled={pdfLoading}
+          className={`bg-white border-4 border-agri-dark text-agri-dark font-black px-6 py-3 rounded-xl shadow-brutal-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-brutal-base flex items-center gap-2 ${
+            pdfLoading ? "opacity-75 cursor-not-allowed hover:translate-y-0 hover:shadow-brutal-sm" : ""
+          }`}
         >
-          <FileText className="w-5 h-5" strokeWidth={3} />
-          Cetak PDF
+          {pdfLoading ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" strokeWidth={3} />
+              Menyiapkan PDF...
+            </>
+          ) : (
+            <>
+              <FileText className="w-5 h-5" strokeWidth={3} />
+              Cetak PDF
+            </>
+          )}
         </button>
         <button
           onClick={handleCsv}
