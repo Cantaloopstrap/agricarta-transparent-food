@@ -9,10 +9,16 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as PremiumRouteImport } from './routes/premium'
 import { Route as PetaniRouteImport } from './routes/petani'
 import { Route as DistributorRouteImport } from './routes/distributor'
 import { Route as IndexRouteImport } from './routes/index'
 
+const PremiumRoute = PremiumRouteImport.update({
+  id: '/premium',
+  path: '/premium',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PetaniRoute = PetaniRouteImport.update({
   id: '/petani',
   path: '/petani',
@@ -33,34 +39,45 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/distributor': typeof DistributorRoute
   '/petani': typeof PetaniRoute
+  '/premium': typeof PremiumRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/distributor': typeof DistributorRoute
   '/petani': typeof PetaniRoute
+  '/premium': typeof PremiumRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/distributor': typeof DistributorRoute
   '/petani': typeof PetaniRoute
+  '/premium': typeof PremiumRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/distributor' | '/petani'
+  fullPaths: '/' | '/distributor' | '/petani' | '/premium'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/distributor' | '/petani'
-  id: '__root__' | '/' | '/distributor' | '/petani'
+  to: '/' | '/distributor' | '/petani' | '/premium'
+  id: '__root__' | '/' | '/distributor' | '/petani' | '/premium'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DistributorRoute: typeof DistributorRoute
   PetaniRoute: typeof PetaniRoute
+  PremiumRoute: typeof PremiumRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/premium': {
+      id: '/premium'
+      path: '/premium'
+      fullPath: '/premium'
+      preLoaderRoute: typeof PremiumRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/petani': {
       id: '/petani'
       path: '/petani'
@@ -89,6 +106,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DistributorRoute: DistributorRoute,
   PetaniRoute: PetaniRoute,
+  PremiumRoute: PremiumRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
