@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { TrendingUp, TrendingDown, Lock } from "lucide-react";
 import { GlobalNavbar } from "@/components/GlobalNavbar";
+import { PaymentModal } from "@/components/PaymentModal";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -31,9 +33,11 @@ const priceData = [
 ];
 
 function Landing() {
+  const [payOpen, setPayOpen] = useState(false);
   return (
     <div className="min-h-screen bg-agri-cream">
       <GlobalNavbar />
+
 
       {/* Hero */}
       <section className="pt-28 pb-12 px-6 text-center max-w-7xl mx-auto flex flex-col items-center justify-center">
@@ -132,14 +136,16 @@ function Landing() {
               depan. Ideal untuk petani, pedagang, dan distributor.
             </p>
             <button
-              onClick={() => alert("Open Payment Modal")}
+              onClick={() => setPayOpen(true)}
               className="mt-6 bg-agri-dark text-white font-black text-lg px-8 py-4 border-4 border-agri-dark rounded-xl shadow-brutal-sm transition-transform duration-200 hover:-translate-y-1 hover:shadow-brutal-hover"
             >
               Gabung Premium
             </button>
+
           </div>
         </div>
       </section>
+      {payOpen && <PaymentModal onClose={() => setPayOpen(false)} />}
     </div>
   );
 }

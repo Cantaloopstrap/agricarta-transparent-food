@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Search, ShieldCheck, ChevronDown } from "lucide-react";
+import { Search, ShieldCheck, ChevronDown, Zap } from "lucide-react";
 import { GlobalNavbar } from "@/components/GlobalNavbar";
 
 export const Route = createFileRoute("/petani")({
@@ -49,14 +49,37 @@ const DATE_FILTERS = [
   { value: "month", label: "Bulan Ini" },
 ];
 
+const SIMULATED_COMMODITIES = [
+  { commodity: "Cabai Rawit", weightKg: 50, farmer: "Pak Joko", region: "Kediri" },
+  { commodity: "Padi", weightKg: 200, farmer: "Bu Ani", region: "Karawang" },
+  { commodity: "Jagung", weightKg: 150, farmer: "Pak Herman", region: "Blitar" },
+  { commodity: "Bawang Putih", weightKg: 30, farmer: "Bu Sari", region: "Tegal" },
+];
+
 function DashboardPetani() {
   const [query, setQuery] = useState("");
   const [dateFilter, setDateFilter] = useState("all");
+  const [harvests, setHarvests] = useState<Harvest[]>(HARVESTS);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return HARVESTS.filter((h) => (q ? h.commodity.toLowerCase().includes(q) : true));
-  }, [query]);
+    return harvests.filter((h) => (q ? h.commodity.toLowerCase().includes(q) : true));
+  }, [query, harvests]);
+
+  const simulateWebhook = () => {
+    const pick = SIMULATED_COMMODITIES[Math.floor(Math.random() * SIMULATED_COMMODITIES.length)];
+    const now = new Date();
+    const newHarvest: Harvest = {
+      id: `sim-${now.getTime()}`,
+      commodity: pick.commodity,
+      weightKg: pick.weightKg,
+      farmer: pick.farmer,
+      region: pick.region,
+      date: now.toISOString().slice(0, 10),
+    };
+    setHarvests((prev) => [newHarvest, ...prev]);
+  };
+
 
   return (
     <div className="min-h-screen bg-agri-cream">
@@ -119,6 +142,15 @@ function DashboardPetani() {
           </div>
         )}
       </section>
+
+      {/* Floating Simulate Bot Webhook button */}
+      <button
+        onClick={simulateWebhook}
+        className="fixed bottom-6 right-6 z-40 bg-agri-amber text-agri-dark font-black px-5 py-4 border-4 border-agri-dark rounded-xl shadow-brutal-base transition-transform duration-200 hover:-translate-y-1 hover:shadow-brutal-hover flex items-center gap-2 uppercase tracking-tight"
+      >
+        <Zap className="w-5 h-5" strokeWidth={3} />
+        Simulate Bot Webhook
+      </button>
     </div>
   );
 }
