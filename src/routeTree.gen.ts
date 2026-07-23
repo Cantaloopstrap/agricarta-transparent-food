@@ -9,20 +9,21 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as PremiumRouteImport } from './routes/premium'
-import { Route as PetaniRouteImport } from './routes/petani'
-import { Route as DistributorRouteImport } from './routes/distributor'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as DistributorRouteImport } from './routes/distributor'
+import { Route as PetaniRouteImport } from './routes/petani'
+import { Route as PremiumRouteImport } from './routes/premium'
 import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
 
-const PremiumRoute = PremiumRouteImport.update({
-  id: '/premium',
-  path: '/premium',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PetaniRoute = PetaniRouteImport.update({
-  id: '/petani',
-  path: '/petani',
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DistributorRoute = DistributorRouteImport.update({
@@ -30,9 +31,14 @@ const DistributorRoute = DistributorRouteImport.update({
   path: '/distributor',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const PetaniRoute = PetaniRouteImport.update({
+  id: '/petani',
+  path: '/petani',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PremiumRoute = PremiumRouteImport.update({
+  id: '/premium',
+  path: '/premium',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminDashboardRoute = AdminDashboardRouteImport.update({
@@ -43,6 +49,7 @@ const AdminDashboardRoute = AdminDashboardRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/distributor': typeof DistributorRoute
   '/petani': typeof PetaniRoute
   '/premium': typeof PremiumRoute
@@ -50,6 +57,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/distributor': typeof DistributorRoute
   '/petani': typeof PetaniRoute
   '/premium': typeof PremiumRoute
@@ -58,6 +66,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/distributor': typeof DistributorRoute
   '/petani': typeof PetaniRoute
   '/premium': typeof PremiumRoute
@@ -65,12 +74,15 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/distributor' | '/petani' | '/premium' | '/admin/dashboard'
+  fullPaths:
+    '/' | '/auth' | '/distributor' | '/petani' | '/premium' | '/admin/dashboard'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/distributor' | '/petani' | '/premium' | '/admin/dashboard'
+  to:
+    '/' | '/auth' | '/distributor' | '/petani' | '/premium' | '/admin/dashboard'
   id:
     | '__root__'
     | '/'
+    | '/auth'
     | '/distributor'
     | '/petani'
     | '/premium'
@@ -79,6 +91,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthRoute: typeof AuthRoute
   DistributorRoute: typeof DistributorRoute
   PetaniRoute: typeof PetaniRoute
   PremiumRoute: typeof PremiumRoute
@@ -87,18 +100,18 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/premium': {
-      id: '/premium'
-      path: '/premium'
-      fullPath: '/premium'
-      preLoaderRoute: typeof PremiumRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/petani': {
-      id: '/petani'
-      path: '/petani'
-      fullPath: '/petani'
-      preLoaderRoute: typeof PetaniRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/distributor': {
@@ -108,11 +121,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DistributorRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/petani': {
+      id: '/petani'
+      path: '/petani'
+      fullPath: '/petani'
+      preLoaderRoute: typeof PetaniRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/premium': {
+      id: '/premium'
+      path: '/premium'
+      fullPath: '/premium'
+      preLoaderRoute: typeof PremiumRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/dashboard': {
@@ -127,6 +147,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthRoute: AuthRoute,
   DistributorRoute: DistributorRoute,
   PetaniRoute: PetaniRoute,
   PremiumRoute: PremiumRoute,
@@ -135,3 +156,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
