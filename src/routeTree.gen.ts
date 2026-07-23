@@ -13,6 +13,7 @@ import { Route as PremiumRouteImport } from './routes/premium'
 import { Route as PetaniRouteImport } from './routes/petani'
 import { Route as DistributorRouteImport } from './routes/distributor'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
 
 const PremiumRoute = PremiumRouteImport.update({
   id: '/premium',
@@ -34,18 +35,25 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminDashboardRoute = AdminDashboardRouteImport.update({
+  id: '/admin/dashboard',
+  path: '/admin/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/distributor': typeof DistributorRoute
   '/petani': typeof PetaniRoute
   '/premium': typeof PremiumRoute
+  '/admin/dashboard': typeof AdminDashboardRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/distributor': typeof DistributorRoute
   '/petani': typeof PetaniRoute
   '/premium': typeof PremiumRoute
+  '/admin/dashboard': typeof AdminDashboardRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,20 @@ export interface FileRoutesById {
   '/distributor': typeof DistributorRoute
   '/petani': typeof PetaniRoute
   '/premium': typeof PremiumRoute
+  '/admin/dashboard': typeof AdminDashboardRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/distributor' | '/petani' | '/premium'
+  fullPaths: '/' | '/distributor' | '/petani' | '/premium' | '/admin/dashboard'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/distributor' | '/petani' | '/premium'
-  id: '__root__' | '/' | '/distributor' | '/petani' | '/premium'
+  to: '/' | '/distributor' | '/petani' | '/premium' | '/admin/dashboard'
+  id:
+    | '__root__'
+    | '/'
+    | '/distributor'
+    | '/petani'
+    | '/premium'
+    | '/admin/dashboard'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +82,7 @@ export interface RootRouteChildren {
   DistributorRoute: typeof DistributorRoute
   PetaniRoute: typeof PetaniRoute
   PremiumRoute: typeof PremiumRoute
+  AdminDashboardRoute: typeof AdminDashboardRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -99,6 +115,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/dashboard': {
+      id: '/admin/dashboard'
+      path: '/admin/dashboard'
+      fullPath: '/admin/dashboard'
+      preLoaderRoute: typeof AdminDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -107,6 +130,7 @@ const rootRouteChildren: RootRouteChildren = {
   DistributorRoute: DistributorRoute,
   PetaniRoute: PetaniRoute,
   PremiumRoute: PremiumRoute,
+  AdminDashboardRoute: AdminDashboardRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
