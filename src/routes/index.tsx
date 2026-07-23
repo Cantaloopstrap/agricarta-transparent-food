@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { TrendingUp, TrendingDown, Lock } from "lucide-react";
 import { GlobalNavbar } from "@/components/GlobalNavbar";
+import { PaymentModal } from "@/components/PaymentModal";
 
 export const Route = createFileRoute("/")({
   head: () => ({
