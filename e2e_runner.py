@@ -8,7 +8,7 @@ import sys
 BACKEND_URL = "http://localhost:5000"
 ML_URL = "http://localhost:8000"
 FRONTEND_URL = "http://localhost:5173"
-SERVER_KEY = "Mid-server-QGlbMpljfbl29UkMTS4lDKOF"
+MIDTRANS_SERVER_KEY = os.getenv("MIDTRANS_SERVER_KEY", "Mid-server-DUMMY_KEY_FOR_TESTING")
 
 report = {
     "tahap1_health": {},
