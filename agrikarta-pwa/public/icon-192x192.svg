@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#10b981;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#14b8a6;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="192" height="192" rx="38" fill="#020617"/>
+  <rect x="8" y="8" width="176" height="176" rx="32" fill="url(#grad)" opacity="0.15"/>
+  <!-- Database icon -->
+  <g transform="translate(96,96)" fill="none" stroke="url(#grad)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <ellipse cx="0" cy="-32" rx="40" ry="14"/>
+    <path d="M-40,-32 v20 c0,7.73 17.91,14 40,14 s40,-6.27 40,-14 v-20"/>
+    <path d="M-40,-12 v20 c0,7.73 17.91,14 40,14 s40,-6.27 40,-14 v-20"/>
+    <path d="M-40,8 v20 c0,7.73 17.91,14 40,14 s40,-6.27 40,-14 v-20"/>
+  </g>
+  <!-- Leaf accent -->
+  <g transform="translate(130,40)" fill="#10b981" opacity="0.9">
+    <path d="M0,24 Q8,-8 28,-20 Q12,0 8,24 Z"/>
+    <line x1="0" y1="24" x2="16" y2="0" stroke="#10b981" stroke-width="2" fill="none"/>
+  </g>
+</svg>

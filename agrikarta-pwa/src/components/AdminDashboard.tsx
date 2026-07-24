@@ -1,149 +1,263 @@
-import React, { useState } from 'react';
-import { ShieldAlert, UserX, Activity, CheckCircle2, Search, Terminal } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 
-interface UserItem {
-  id: string;
-  name: string;
-  role: 'Petani' | 'Distributor' | 'Premium';
-  status: 'Active' | 'Banned';
-  lastActive: string;
-}
+interface ServiceHealth { name: string; status: 'healthy' | 'degraded' | 'down'; uptime: string; endpoint: string; latency?: number; }
+interface UserRow { id: string; name: string; wa: string; isPremium: boolean; joinedDate: string; }
+interface CommodityEntry { id: number; name: string; emoji: string; lastPrice: number; updated: string; }
+interface AdminDashboardProps { onBack: () => void; }
 
-export const AdminDashboard: React.FC = () => {
-  const [users, setUsers] = useState<UserItem[]>([
-    { id: 'usr-1', name: 'Budi Santoso', role: 'Petani', status: 'Active', lastActive: '2 menit lalu' },
-    { id: 'usr-2', name: 'PT Agrilogistik Jaya', role: 'Distributor', status: 'Active', lastActive: '10 menit lalu' },
-    { id: 'usr-3', name: 'AgroCorp Global', role: 'Premium', status: 'Active', lastActive: '1 jam lalu' },
-    { id: 'usr-4', name: 'Sujatmiko', role: 'Petani', status: 'Active', lastActive: '3 jam lalu' },
+type AdminTab = 'overview' | 'users' | 'commodities' | 'services' | 'reports';
+
+export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
+  const [activeTab, setActiveTab] = useState<AdminTab>('overview');
+  const [loading, setLoading] = useState(true);
+
+  const [services] = useState<ServiceHealth[]>([
+    { name: 'Backend API', status: 'healthy', uptime: '99.8%', endpoint: 'localhost:5000', latency: 45 },
+    { name: 'ML Engine', status: 'healthy', uptime: '97.2%', endpoint: 'localhost:8000', latency: 120 },
+    { name: 'WhatsApp Bot', status: 'degraded', uptime: '94.5%', endpoint: 'Baileys WS', latency: 250 },
+    { name: 'Supabase DB', status: 'healthy', uptime: '99.9%', endpoint: 'supabase.co', latency: 30 },
   ]);
 
-  const [logs, setLogs] = useState<string[]>([
-    "[SYSTEM 18:35:10] FastAPI ML Engine Model PyTorch LSTM Inference successfully executed.",
-    "[AUTH 18:32:04] User 'Budi Santoso' logged in via Magic Link.",
-    "[CRON 18:00:00] Daily SP2KP Web Scraper executed. Data ingested successfully.",
-    "[SECURITY 17:45:12] CORS check origin 'http://localhost:5173' passed."
+  const [users] = useState<UserRow[]>([
+    { id: 'u1', name: 'Budi Santoso', wa: '6281234567890', isPremium: true, joinedDate: '2026-01-15' },
+    { id: 'u2', name: 'Sri Wahyuni', wa: '6289876543210', isPremium: false, joinedDate: '2026-03-22' },
+    { id: 'u3', name: 'Ahmad Fauzi', wa: '6285551234567', isPremium: true, joinedDate: '2026-05-10' },
+    { id: 'u4', name: 'Dewi Lestari', wa: '6287771112222', isPremium: false, joinedDate: '2026-06-01' },
+    { id: 'u5', name: 'Sujatmiko', wa: '6281119998877', isPremium: true, joinedDate: '2026-06-18' },
   ]);
 
-  const [toast, setToast] = useState<string | null>(null);
+  const [commodities] = useState<CommodityEntry[]>([
+    { id: 1, name: 'Beras Medium', emoji: '🍚', lastPrice: 14500, updated: '2026-07-24' },
+    { id: 2, name: 'Cabai Merah', emoji: '🌶️', lastPrice: 38000, updated: '2026-07-24' },
+    { id: 3, name: 'Bawang Merah', emoji: '🧅', lastPrice: 32000, updated: '2026-07-24' },
+    { id: 4, name: 'Jagung Pipilan', emoji: '🌽', lastPrice: 5200, updated: '2026-07-23' },
+    { id: 5, name: 'Minyak Goreng', emoji: '🫗', lastPrice: 17500, updated: '2026-07-23' },
+    { id: 6, name: 'Padi Gabah', emoji: '🌾', lastPrice: 6800, updated: '2026-07-22' },
+  ]);
 
-  const handleBanUser = (userId: string, userName: string) => {
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: u.status === 'Banned' ? 'Active' : 'Banned' } : u));
-    const isBanning = users.find(u => u.id === userId)?.status === 'Active';
-    const actionMsg = isBanning ? `User '${userName}' telah di-BAN dari sistem.` : `User '${userName}' di-UNBAN.`;
-    
-    setToast(actionMsg);
-    setLogs(prev => [`[ADMIN ACTION] ${actionMsg}`, ...prev]);
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 800);
+    return () => clearTimeout(timer);
+  }, []);
 
-    setTimeout(() => setToast(null), 3000);
+  const statusBadge = (s: ServiceHealth['status']) => {
+    const map = {
+      healthy: 'bg-agri-forest text-white',
+      degraded: 'bg-agri-amber text-agri-dark',
+      down: 'bg-red-600 text-white',
+    };
+    return `${map[s]} px-3 py-1 rounded-md font-black text-xs border-2 border-agri-dark uppercase`;
   };
 
+  const sidebarItems: { key: AdminTab; label: string; icon: string }[] = [
+    { key: 'overview', label: 'Overview', icon: '🏠' },
+    { key: 'users', label: 'Users', icon: '👥' },
+    { key: 'commodities', label: 'Komoditas', icon: '📦' },
+    { key: 'services', label: 'Services', icon: '🔧' },
+    { key: 'reports', label: 'Reports', icon: '📊' },
+  ];
+
   return (
-    <div className="space-y-6">
-      {toast && (
-        <div className="fixed bottom-6 right-6 z-50 bg-rose-500 text-white px-4 py-3 rounded-xl shadow-2xl font-semibold animate-pulse flex items-center space-x-2">
-          <ShieldAlert className="w-5 h-5" />
-          <span>{toast}</span>
-        </div>
-      )}
+    <div className="flex min-h-screen bg-agri-cream text-agri-dark">
 
-      {/* Header Banner */}
-      <div className="glass-card p-6 rounded-2xl border-rose-500/20">
-        <div className="flex items-center space-x-2 text-rose-400 font-semibold text-sm mb-1">
-          <ShieldAlert className="w-4 h-4" />
-          <span>UI 05 - Hidden Admin Portal Agrikarta</span>
-        </div>
-        <h1 className="text-2xl font-bold text-white">Monitoring Sistem & Manajemen Pengguna</h1>
-        <p className="text-slate-400 text-sm mt-1">
-          Pusat kendali log real-time, audit keamanan, dan manajemen akses pengguna platform.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* User Access Management Table */}
-        <div className="glass-card p-5 rounded-2xl space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold text-lg text-white flex items-center space-x-2">
-              <UserX className="w-5 h-5 text-rose-400" />
-              <span>Manajemen Akses & Ban User</span>
-            </h3>
-            <span className="text-xs bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full font-medium">
-              {users.length} Users Registered
-            </span>
+      {/* ═══ Sidebar — Neobrutalism ═══ */}
+      <aside className="w-64 bg-agri-dark text-white flex flex-col border-r-4 border-agri-dark shrink-0">
+        <div className="p-4 flex items-center gap-3 border-b-4 border-white/10">
+          <div className="w-8 h-8 rounded-lg bg-agri-amber border-2 border-agri-dark flex items-center justify-center shadow-brutal-sm">
+            <span className="text-agri-dark font-black text-sm">A</span>
           </div>
+          <div>
+            <h2 className="font-black text-sm tracking-wide">AGRIKARTA</h2>
+            <p className="text-xs text-white/50 font-medium">Admin Panel</p>
+          </div>
+        </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-300">
-              <thead className="bg-slate-900/60 text-slate-400 uppercase tracking-wider font-semibold border-b border-slate-800">
-                <tr>
-                  <th className="p-3">Nama</th>
-                  <th className="p-3">Role</th>
-                  <th className="p-3">Status</th>
-                  <th className="p-3 text-right">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/50">
-                {users.map(user => (
-                  <tr key={user.id} className="hover:bg-slate-900/40 transition">
-                    <td className="p-3 font-medium text-white">{user.name}</td>
-                    <td className="p-3">
-                      <span className="bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-mono text-[10px]">
-                        {user.role}
-                      </span>
-                    </td>
-                    <td className="p-3">
-                      {user.status === 'Active' ? (
-                        <span className="text-emerald-400 font-semibold flex items-center space-x-1">
-                          <CheckCircle2 className="w-3 h-3 inline" />
-                          <span>Aktif</span>
-                        </span>
-                      ) : (
-                        <span className="text-rose-400 font-semibold flex items-center space-x-1">
-                          <ShieldAlert className="w-3 h-3 inline" />
-                          <span>Banned</span>
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-3 text-right">
-                      <button
-                        onClick={() => handleBanUser(user.id, user.name)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                          user.status === 'Active'
-                            ? 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30'
-                            : 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30'
-                        }`}
-                      >
-                        {user.status === 'Active' ? 'Ban User' : 'Unban User'}
-                      </button>
-                    </td>
-                  </tr>
+        <nav className="flex-1 p-3 space-y-1">
+          {sidebarItems.map(item => (
+            <button
+              key={item.key}
+              onClick={() => setActiveTab(item.key)}
+              className={`w-full text-left px-4 py-3 rounded-lg font-bold transition-all flex items-center gap-3 ${
+                activeTab === item.key
+                  ? 'bg-agri-amber text-agri-dark shadow-brutal-sm border-2 border-agri-dark'
+                  : 'text-white/70 hover:bg-white/10 hover:text-white border-2 border-transparent'
+              }`}
+            >
+              <span>{item.icon}</span>
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </nav>
+
+        <div className="p-3 border-t-4 border-white/10">
+          <button
+            onClick={onBack}
+            className="w-full text-left px-4 py-3 rounded-lg font-bold text-white/60 hover:text-white hover:bg-white/10 transition-all flex items-center gap-3"
+          >
+            <span>←</span>
+            <span>Kembali ke App</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* ═══ Main Admin Content ═══ */}
+      <main className="flex-1 p-8 overflow-y-auto">
+
+        {/* Overview Tab */}
+        {activeTab === 'overview' && (
+          <div className="space-y-8">
+            <h1 className="text-3xl font-black tracking-tight">Admin Overview</h1>
+
+            {/* Stats Row */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+              {[
+                { label: 'Total Users', value: users.length, icon: '👥' },
+                { label: 'Premium Users', value: users.filter(u => u.isPremium).length, icon: '⭐' },
+                { label: 'Komoditas Aktif', value: commodities.length, icon: '📦' },
+                { label: 'Services Up', value: services.filter(s => s.status === 'healthy').length + '/' + services.length, icon: '✅' },
+              ].map((stat, i) => (
+                <div key={i} className="bg-white p-5 border-4 border-agri-dark rounded-xl shadow-brutal-sm">
+                  <p className="text-xs font-black text-agri-dark/60 uppercase tracking-wider">{stat.label}</p>
+                  <p className="text-4xl font-black text-agri-dark mt-2">{stat.value}</p>
+                  <p className="text-2xl mt-1">{stat.icon}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Quick Service Status */}
+            <div className="bg-white p-6 border-4 border-agri-dark rounded-xl shadow-brutal-card">
+              <h2 className="font-black text-xl mb-4">Service Health</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {services.map((s, i) => (
+                  <div key={i} className="bg-agri-cream border-2 border-agri-dark rounded-lg p-4 flex items-center justify-between">
+                    <div>
+                      <p className="font-black text-agri-dark">{s.name}</p>
+                      <p className="text-xs text-agri-dark/60 font-medium">{s.endpoint} · {s.latency}ms</p>
+                    </div>
+                    <span className={statusBadge(s.status)}>{s.status}</span>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Real-time System Logs Terminal */}
-        <div className="glass-card p-5 rounded-2xl space-y-3 font-mono text-xs">
-          <div className="flex items-center justify-between text-slate-300 pb-2 border-b border-slate-800">
-            <span className="font-bold flex items-center space-x-2 text-white">
-              <Terminal className="w-4 h-4 text-emerald-400" />
-              <span>Real-Time Audit System Logs</span>
-            </span>
-            <span className="flex items-center space-x-1 text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-              <Activity className="w-3 h-3 animate-pulse" />
-              <span>LIVE</span>
-            </span>
-          </div>
-
-          <div className="h-[240px] bg-slate-950 p-3 rounded-xl overflow-y-auto space-y-2 text-slate-300 border border-slate-900">
-            {logs.map((log, idx) => (
-              <div key={idx} className="leading-relaxed border-b border-slate-900/40 pb-1">
-                <span className="text-slate-500">&gt;</span> {log}
               </div>
-            ))}
+            </div>
           </div>
-        </div>
-      </div>
+        )}
+
+        {/* Users Tab */}
+        {activeTab === 'users' && (
+          <div className="space-y-6">
+            <h1 className="text-3xl font-black tracking-tight">User Management</h1>
+            <div className="bg-white border-4 border-agri-dark rounded-xl overflow-hidden shadow-brutal-card">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-agri-cream border-b-4 border-agri-dark text-left text-sm font-black">
+                    <th className="px-6 py-4">Nama</th>
+                    <th className="px-6 py-4">WhatsApp</th>
+                    <th className="px-6 py-4 text-center">Status</th>
+                    <th className="px-6 py-4 text-right">Joined</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <tr key={i} className="border-b-2 border-agri-dark">
+                        <td className="px-6 py-4"><div className="h-5 w-32 bg-agri-cream animate-pulse rounded" /></td>
+                        <td className="px-6 py-4"><div className="h-5 w-40 bg-agri-cream animate-pulse rounded" /></td>
+                        <td className="px-6 py-4"><div className="h-5 w-20 bg-agri-cream animate-pulse rounded mx-auto" /></td>
+                        <td className="px-6 py-4"><div className="h-5 w-24 bg-agri-cream animate-pulse rounded ml-auto" /></td>
+                      </tr>
+                    ))
+                  ) : (
+                    users.map(u => (
+                      <tr key={u.id} className="border-b-2 border-agri-dark hover:bg-agri-cream/30 transition-colors">
+                        <td className="px-6 py-4 font-bold">{u.name}</td>
+                        <td className="px-6 py-4 font-medium text-agri-dark/70">{u.wa}</td>
+                        <td className="px-6 py-4 text-center">
+                          {u.isPremium ? (
+                            <span className="bg-agri-amber text-agri-dark font-black px-3 py-1 rounded-md border-2 border-agri-dark text-xs">⭐ PREMIUM</span>
+                          ) : (
+                            <span className="bg-white text-agri-dark/70 font-bold px-3 py-1 rounded-md border-2 border-agri-dark text-xs">FREE</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-right font-medium text-agri-dark/60">{u.joinedDate}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Commodities Tab */}
+        {activeTab === 'commodities' && (
+          <div className="space-y-6">
+            <h1 className="text-3xl font-black tracking-tight">Master Komoditas</h1>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {commodities.map(c => (
+                <div key={c.id} className="bg-white p-6 border-4 border-agri-dark rounded-xl shadow-brutal-sm hover:-translate-y-1 hover:shadow-brutal-base transition-all">
+                  <div className="text-4xl mb-3">{c.emoji}</div>
+                  <h3 className="font-black text-xl text-agri-dark">{c.name}</h3>
+                  <p className="text-2xl font-black text-agri-forest mt-2">Rp {c.lastPrice.toLocaleString('id-ID')}</p>
+                  <p className="text-xs text-agri-dark/50 font-bold mt-1">ID: {c.id} · Updated: {c.updated}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Services Tab */}
+        {activeTab === 'services' && (
+          <div className="space-y-6">
+            <h1 className="text-3xl font-black tracking-tight">Service Health Monitor</h1>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {services.map((s, i) => (
+                <div key={i} className="bg-white border-4 border-agri-dark rounded-xl p-6 shadow-brutal-card">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-black text-xl text-agri-dark">{s.name}</h3>
+                    <span className={statusBadge(s.status)}>{s.status}</span>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm font-bold text-agri-dark/80">
+                      <span>Endpoint</span>
+                      <span className="font-mono">{s.endpoint}</span>
+                    </div>
+                    <div className="flex justify-between text-sm font-bold text-agri-dark/80">
+                      <span>Uptime</span>
+                      <span>{s.uptime}</span>
+                    </div>
+                    <div className="flex justify-between text-sm font-bold text-agri-dark/80">
+                      <span>Latency</span>
+                      <span>{s.latency}ms</span>
+                    </div>
+                  </div>
+                  {/* Uptime bar */}
+                  <div className="mt-4 bg-agri-cream border-2 border-agri-dark h-4 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-700 ease-out rounded-full ${s.status === 'healthy' ? 'bg-agri-forest' : s.status === 'degraded' ? 'bg-agri-amber' : 'bg-red-600'}`}
+                      style={{ width: s.uptime }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Reports Tab */}
+        {activeTab === 'reports' && (
+          <div className="space-y-6">
+            <h1 className="text-3xl font-black tracking-tight">Reports & Analytics</h1>
+            <div className="bg-white border-4 border-agri-dark rounded-xl p-8 shadow-brutal-card flex flex-col items-center justify-center h-64">
+              <span className="text-6xl mb-4">📊</span>
+              <h3 className="text-xl font-black text-agri-dark">Analytics Dashboard</h3>
+              <p className="text-agri-dark/60 font-medium mt-2 text-center max-w-sm">
+                Modul reporting akan menampilkan analitik penggunaan platform, tren harga historis, dan statistik bot WhatsApp. Coming soon.
+              </p>
+            </div>
+          </div>
+        )}
+
+      </main>
     </div>
   );
 };

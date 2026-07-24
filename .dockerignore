@@ -1,0 +1,41 @@
+# ═══════════════════════════════════════════════════════════════════════
+# Agrikarta — Docker Build Ignore Patterns
+# ═══════════════════════════════════════════════════════════════════════
+
+# Dependencies (will be installed in container)
+**/node_modules
+**/__pycache__
+**/*.pyc
+
+# Version control
+.git
+.gitignore
+
+# Environment files (use env_file in docker-compose)
+.env
+**/.env
+
+# Build artifacts
+**/dist
+**/.output
+**/.wrangler
+**/.tanstack
+
+# IDE & Editor
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Documentation (not needed in image)
+*.md
+!README.md
+dokumentasi/
+
+# Lock files for other package managers
+bun.lock
+bunfig.toml

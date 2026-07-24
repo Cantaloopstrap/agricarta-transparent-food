@@ -7,13 +7,21 @@ from db_client import get_supabase_client
 logger = logging.getLogger("ml_engine.scraper")
 
 DEFAULT_COMMODITIES = [
-    {"id": "jagung", "name": "Jagung", "base_price": 5200.0},
-    {"id": "cabai", "name": "Cabai", "base_price": 38000.0},
-    {"id": "padi", "name": "Padi", "base_price": 6800.0},
-    {"id": "bawang", "name": "Bawang", "base_price": 32000.0},
-    {"id": "beras", "name": "Beras", "base_price": 14500.0},
-    {"id": "minyak", "name": "Minyak", "base_price": 17500.0}
+    {"id": "jagung", "db_id": 1, "name": "Jagung", "base_price": 5200.0},
+    {"id": "cabai", "db_id": 2, "name": "Cabai", "base_price": 38000.0},
+    {"id": "padi", "db_id": 3, "name": "Padi", "base_price": 6800.0},
+    {"id": "bawang", "db_id": 4, "name": "Bawang", "base_price": 32000.0},
+    {"id": "beras", "db_id": 5, "name": "Beras", "base_price": 14500.0},
+    {"id": "minyak", "db_id": 6, "name": "Minyak", "base_price": 17500.0}
 ]
+
+def get_db_commodity_id(comm: str) -> int:
+    mapping = {"jagung": 1, "cabai": 2, "padi": 3, "bawang": 4, "beras": 5, "minyak": 6}
+    if isinstance(comm, int):
+        return comm
+    if str(comm).isdigit():
+        return int(comm)
+    return mapping.get(str(comm).lower().strip(), 1)
 
 async def trigger_forward_fill(today_str: str, commodity_id: str, default_price: float) -> float:
     """
@@ -21,6 +29,7 @@ async def trigger_forward_fill(today_str: str, commodity_id: str, default_price:
     If previous day record doesn't exist, falls back to default base price.
     """
     supabase = get_supabase_client()
+    db_id = get_db_commodity_id(commodity_id)
     if supabase:
         try:
             yesterday_date = datetime.date.today() - datetime.timedelta(days=1)
@@ -28,7 +37,7 @@ async def trigger_forward_fill(today_str: str, commodity_id: str, default_price:
             
             response = supabase.table("daily_prices") \
                 .select("actual_price") \
-                .eq("commodity_id", commodity_id) \
+                .eq("commodity_id", db_id) \
                 .eq("date", yesterday_str) \
                 .execute()
                 
@@ -79,6 +88,7 @@ async def scrape_sp2kp_data():
                             
         for comm in DEFAULT_COMMODITIES:
             c_id = comm["id"]
+            db_id = comm["db_id"]
             if c_id in found_commodities:
                 actual_price = found_commodities[c_id]
                 logger.info(f"Scraped {comm['name']}: Rp {actual_price}")
@@ -88,7 +98,7 @@ async def scrape_sp2kp_data():
             
             scraped_records.append({
                 "date": today_str,
-                "commodity_id": c_id,
+                "commodity_id": db_id,
                 "actual_price": actual_price
             })
             
@@ -96,10 +106,11 @@ async def scrape_sp2kp_data():
         logger.warning(f"SP2KP scrape error: {exc}. Executing Forward Fill for all commodities...")
         for comm in DEFAULT_COMMODITIES:
             c_id = comm["id"]
+            db_id = comm["db_id"]
             actual_price = await trigger_forward_fill(today_str, c_id, comm["base_price"])
             scraped_records.append({
                 "date": today_str,
-                "commodity_id": c_id,
+                "commodity_id": db_id,
                 "actual_price": actual_price
             })
             
