@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════════
 # AgriCarta One-Click Local Environment Runner (Linux / macOS)
 # Launches Frontend PWA, Backend/Bot, and ML Engine in parallel

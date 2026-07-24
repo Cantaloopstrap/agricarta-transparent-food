@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 # ═══════════════════════════════════════════════════════════════════════════════
 # AgriCarta One-Click Local Environment Runner (Windows PowerShell)
 # Launches Frontend PWA, Backend/Bot, and ML Engine in parallel
@@ -9,9 +9,9 @@ $Host.UI.RawUI.WindowTitle = "AgriCarta Local Dev Environment"
 
 # ─── Color Helpers ───────────────────────────────────────────────────────────
 function Write-Step { param($msg) Write-Host "  ▸ " -NoNewline -ForegroundColor DarkCyan; Write-Host $msg -ForegroundColor White }
-function Write-OK   { param($msg) Write-Host "  ✓ " -NoNewline -ForegroundColor Green; Write-Host $msg -ForegroundColor Gray }
+function Write-OK { param($msg) Write-Host "  ✓ " -NoNewline -ForegroundColor Green; Write-Host $msg -ForegroundColor Gray }
 function Write-Warn { param($msg) Write-Host "  ⚠ " -NoNewline -ForegroundColor Yellow; Write-Host $msg -ForegroundColor Yellow }
-function Write-Err  { param($msg) Write-Host "  ✗ " -NoNewline -ForegroundColor Red; Write-Host $msg -ForegroundColor Red }
+function Write-Err { param($msg) Write-Host "  ✗ " -NoNewline -ForegroundColor Red; Write-Host $msg -ForegroundColor Red }
 
 # ─── ASCII Banner ────────────────────────────────────────────────────────────
 function Show-Banner {
@@ -44,7 +44,8 @@ function Test-Prerequisites {
     if ($nodePath) {
         $nodeVer = & node --version 2>$null
         Write-OK "Node.js found: $nodeVer"
-    } else {
+    }
+    else {
         Write-Err "Node.js not found! Install from https://nodejs.org"
         exit 1
     }
@@ -54,7 +55,8 @@ function Test-Prerequisites {
     if ($npmPath) {
         $npmVer = & npm --version 2>$null
         Write-OK "npm found: v$npmVer"
-    } else {
+    }
+    else {
         Write-Err "npm not found!"
         exit 1
     }
@@ -93,7 +95,8 @@ function Install-Dependencies {
         & npm install 2>&1 | Out-Null
         Pop-Location
         Write-OK "Backend dependencies installed."
-    } else {
+    }
+    else {
         Write-OK "Backend dependencies already installed."
     }
     
@@ -105,7 +108,8 @@ function Install-Dependencies {
         & npm install 2>&1 | Out-Null
         Pop-Location
         Write-OK "Frontend PWA dependencies installed."
-    } else {
+    }
+    else {
         Write-OK "Frontend PWA dependencies already installed."
     }
     
@@ -207,10 +211,10 @@ try {
             $output = Receive-Job -Job $job -ErrorAction SilentlyContinue
             if ($output) {
                 $color = switch ($job.Name) {
-                    "AgriCarta-Backend"  { "Yellow" }
+                    "AgriCarta-Backend" { "Yellow" }
                     "AgriCarta-Frontend" { "Cyan" }
                     "AgriCarta-MLEngine" { "Magenta" }
-                    default              { "Gray" }
+                    default { "Gray" }
                 }
                 foreach ($line in $output) {
                     Write-Host "  [$($job.Name)] " -NoNewline -ForegroundColor $color
@@ -220,7 +224,8 @@ try {
         }
         Start-Sleep -Milliseconds 500
     }
-} finally {
+}
+finally {
     Write-Host "`n  Shutting down all services..." -ForegroundColor Yellow
     $jobs | ForEach-Object {
         Stop-Job -Job $_ -ErrorAction SilentlyContinue
@@ -228,3 +233,6 @@ try {
     }
     Write-Host "  All services stopped. Goodbye! 👋" -ForegroundColor Green
 }
+
+Read-Host -Prompt "Tekan Enter untuk keluar..."
+
