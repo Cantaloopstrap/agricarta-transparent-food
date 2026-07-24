@@ -1,0 +1,40 @@
+# ==========================================
+# Agrikarta Backend (.gitignore)
+# Node.js WhatsApp Bot & Webhooks
+# ==========================================
+
+# --- Node Modules & Dependencies ---
+node_modules/
+
+# --- WhatsApp Baileys Authentication & Session Storage ---
+# CRITICAL: Mencegah kebocoran token login WhatsApp & kredensial ke publik
+auth_info_baileys/
+baileys_auth_info/
+auth_info/
+sessions/
+*.session
+*.session-store
+
+# --- Environment & Secret Files ---
+.env
+.env.local
+.env.production
+.env.staging
+# File template .env.example TETAP di-track Git untuk acuan environment variable
+!.env.example
+
+# --- Logs & Debug Outputs ---
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- OS & System Files ---
+.DS_Store
+Thumbs.db
+
+# --- IDE & Editor Configs ---
+.vscode/
+.idea/
