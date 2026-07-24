@@ -1,0 +1,74 @@
+{
+  "tahap1_health": {
+    "backend": {
+      "status": 200,
+      "body": {
+        "status": "ok",
+        "service": "Agrikarta Backend Microservice",
+        "timestamp": "2026-07-24T21:06:32.139Z"
+      }
+    },
+    "wa_bot": {
+      "status": 200,
+      "body": {
+        "service": "Agrikarta WhatsApp Bot",
+        "state": "CONNECTED",
+        "reconnectAttempt": 0,
+        "maxReconnectAttempts": 10,
+        "isConnected": true,
+        "timestamp": "2026-07-24T21:06:32.156Z"
+      }
+    },
+    "ml_engine": {
+      "status": 200,
+      "body": {
+        "status": "ok",
+        "timestamp": "2026-07-25T05:06:34.188169"
+      }
+    },
+    "frontend": {
+      "status": 200
+    }
+  },
+  "tahap2_webhook": {
+    "invalid_signature_test": {
+      "status_code": 403,
+      "pass": true,
+      "response": "{\"error\":\"Forbidden: Invalid signature key. This incident has been logged.\"}"
+    },
+    "valid_signature_test": {
+      "status_code": 200,
+      "pass": true,
+      "response": {
+        "status": "OK",
+        "message": "Notification processed"
+      }
+    }
+  },
+  "tahap3_ml": {
+    "scraper_execution": {
+      "exit_code": 0,
+      "stdout_snippet": "\n--- SAMPLE DATASET HARGA AGRIKARTA ---\n       Tanggal Nama Komoditas  Harga Aktual\n0   2026-06-26   Bawang Merah       34300.0\n1   2026-06-27   Bawang Merah       34400.0\n2   2026-06-28   Bawang Merah       34400.0\n3   2026-06-29   Bawang Merah       33700.0\n4   2026-06-30   Bawang Merah       34500.0\n5   2026-07-01   Bawang Merah       33500.0\n6   2026-07-02   Bawang Merah       34200.0\n7   2026-07-03   Bawang Merah       33400.0\n8   2026-07-04   Bawang Merah       33400.0\n9   2026-07-05   Baw",
+      "stderr_snippet": "2026-07-25 05:06:37,540 [INFO] === STARTING SCRAPING PIPELINE ===\n2026-07-25 05:06:37,540 [INFO] Mengirim HTTP Request ke: https://sp2kp.kemendag.go.id\n2026-07-25 05:06:38,750 [INFO] Menemukan 0 elemen <table>.\n2026-07-25 05:06:38,750 [INFO] Mengaktifkan Fallback Generator Time-Series untuk menghasilkan dataset lengkap...\n2026-07-25 05:06:38,751 [INFO] Generating data time-series 30 hari...\n2026-07-25 05:06:38,756 [INFO] Menjalankan Forward Fill untuk data akhir pekan/hari libur...\n2026-07-25 05",
+      "pass": true
+    },
+    "prediction_api": {
+      "status_code": 200,
+      "commodity": "Jagung",
+      "historical_count": 30,
+      "prediction_count": 7,
+      "has_confidence_bounds": true,
+      "pass": true
+    }
+  },
+  "tahap4_pwa": {
+    "service_worker": {
+      "status_code": 200,
+      "pass": true
+    },
+    "manifest": {
+      "status_code": 200,
+      "pass": true
+    }
+  }
+}
