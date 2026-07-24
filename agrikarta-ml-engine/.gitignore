@@ -1,0 +1,48 @@
+# ==========================================
+# Agrikarta ML Engine (.gitignore)
+# Backend Python FastAPI + PyTorch LSTM
+# ==========================================
+
+# --- Python Cache & Compiled Files ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# --- Virtual Environments ---
+venv/
+env/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# --- IDE & Editor Configs ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- Environment & Secret Files ---
+.env
+.env.local
+.env.*.local
+
+# --- Datasets & Raw CSV Files ---
+*.csv
+dataset_*.csv
+
+# --- Checkpoints & Temporary Artifacts ---
+checkpoint*.pt
+*.ckpt
+checkpoints/
+
+# --- Exclusions Exception (Track Production Model & Scaler) ---
+# Abaikan semua file model .pt/.pkl umum jika ada
+*.pt
+*.pkl
+
+# KECUALIKAN file model utama & scaler agar tetap ter-track di Git:
+# (Ukurannya kecil dan sangat krusial untuk deployment production)
+!agrikarta_lstm_model.pt
+!price_scaler.pkl
