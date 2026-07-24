@@ -263,3 +263,30 @@ export async function handleMidtransWebhook(req, res) {
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 }
+
+/**
+ * POST /api/auth/verify-token
+ * Request Body: { token: string }
+ */
+export async function verifyToken(req, res) {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({ valid: false, error: 'Token is required.' });
+    }
+
+    const jwtSecret = process.env.JWT_SECRET || 'agrikarta_super_secret_jwt_key_2026';
+    const decoded = jwt.verify(token, jwtSecret);
+
+    return res.status(200).json({
+      valid: true,
+      phone: decoded.phone,
+      role: decoded.role,
+      tier: decoded.tier || 'premium'
+    });
+  } catch (error) {
+    logger.warn({ error: error.message }, 'JWT token verification failed');
+    return res.status(401).json({ valid: false, error: 'Invalid or expired token.' });
+  }
+}
+
