@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -8,7 +8,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ReferenceLine
 } from 'recharts';
 
 interface HistoricalPoint { date: string; price: number; }
@@ -20,18 +19,21 @@ interface CombinedChartPoint {
   confidenceBand: [number, number] | null;
 }
 
+const ML_ENGINE_URL = 'http://localhost:8000';
+
 export const PremiumDashboard: React.FC = () => {
   const [selectedCommodity, setSelectedCommodity] = useState('beras');
   const [data, setData] = useState<PredictionResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const chartRef = useRef<HTMLDivElement>(null);
 
-  const fetchPredictions = async (commodity: string) => {
+  const fetchPredictions = useCallback(async (commodity: string) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`http://localhost:8000/api/prices/predictions?commodity=${commodity}`);
+      const response = await fetch(`${ML_ENGINE_URL}/api/prices/predictions?commodity=${commodity}`);
       if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
       setData(await response.json());
     } catch {
@@ -50,28 +52,153 @@ export const PremiumDashboard: React.FC = () => {
       setData({ commodity: commodity.toUpperCase(), historical: mockHist, prediction: mockPred });
       setError('Mode simulasi offline aktif (ML Engine belum berjalan)');
     } finally { setLoading(false); }
-  };
+  }, []);
 
-  useEffect(() => { fetchPredictions(selectedCommodity); }, [selectedCommodity]);
+  useEffect(() => { fetchPredictions(selectedCommodity); }, [selectedCommodity, fetchPredictions]);
 
-  const handleDownloadPDF = () => {
-    setPdfLoading(true);
-    setTimeout(() => {
-      alert('Laporan PDF berhasil digenerate (fitur @react-pdf/renderer).');
-      setPdfLoading(false);
-    }, 1500);
-  };
-
-  const handleExportCSV = () => {
+  /* ═══ Client-Side PDF Generator (Fitur 5 spec) ═══ */
+  /* Uses HTML Canvas rendering → Blob → download, no external PDF library needed */
+  const handleDownloadPDF = useCallback(async () => {
     if (!data) return;
-    let csv = "data:text/csv;charset=utf-8,Tanggal,Tipe,Harga (Rp),Lower Bound,Upper Bound\n";
-    data.historical.forEach(h => { csv += `${h.date},Historis,${h.price},,\n`; });
-    data.prediction.forEach(p => { csv += `${p.date},Prediksi,${p.predicted_price},${p.lower_bound},${p.upper_bound}\n`; });
+    setPdfLoading(true);
+
+    try {
+      // Build PDF content using canvas-based approach
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas not supported');
+
+      const W = 800;
+      const H = 1100;
+      canvas.width = W;
+      canvas.height = H;
+
+      // Background
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, W, H);
+
+      // Header bar
+      ctx.fillStyle = '#283F24';
+      ctx.fillRect(0, 0, W, 80);
+      ctx.fillStyle = '#FFBF00';
+      ctx.font = 'bold 28px "Space Grotesk", sans-serif';
+      ctx.fillText('AGRIKARTA — Laporan Prediksi Harga', 30, 52);
+
+      // Subheader
+      ctx.fillStyle = '#283F24';
+      ctx.font = 'bold 16px "Space Grotesk", sans-serif';
+      ctx.fillText(`Komoditas: ${data.commodity}`, 30, 115);
+      ctx.fillText(`Tanggal Cetak: ${new Date().toLocaleDateString('id-ID', { dateStyle: 'full' })}`, 30, 140);
+
+      // Divider
+      ctx.strokeStyle = '#283F24';
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(30, 160); ctx.lineTo(W - 30, 160); ctx.stroke();
+
+      // Historical table header
+      let y = 190;
+      ctx.fillStyle = '#FFF78D';
+      ctx.fillRect(30, y, W - 60, 35);
+      ctx.fillStyle = '#283F24';
+      ctx.strokeStyle = '#283F24';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(30, y, W - 60, 35);
+      ctx.font = 'bold 14px "Space Grotesk", sans-serif';
+      ctx.fillText('TANGGAL', 45, y + 24);
+      ctx.fillText('HARGA AKTUAL (Rp)', 300, y + 24);
+      ctx.fillText('TIPE', 600, y + 24);
+
+      y += 35;
+      ctx.font = '13px "Space Grotesk", sans-serif';
+
+      // Historical rows (last 10)
+      const histSlice = data.historical.slice(-10);
+      for (const row of histSlice) {
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(30, y, W - 60, 28);
+        ctx.strokeStyle = '#283F24';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(30, y, W - 60, 28);
+        ctx.fillStyle = '#283F24';
+        ctx.fillText(row.date, 45, y + 20);
+        ctx.fillText(`Rp ${row.price.toLocaleString('id-ID')}`, 300, y + 20);
+        ctx.fillStyle = '#467235';
+        ctx.fillText('Historis', 600, y + 20);
+        y += 28;
+      }
+
+      // Prediction rows
+      y += 10;
+      ctx.fillStyle = '#FFBF00';
+      ctx.fillRect(30, y, W - 60, 35);
+      ctx.fillStyle = '#283F24';
+      ctx.strokeRect(30, y, W - 60, 35);
+      ctx.font = 'bold 14px "Space Grotesk", sans-serif';
+      ctx.fillText('TANGGAL', 45, y + 24);
+      ctx.fillText('PREDIKSI (Rp)', 250, y + 24);
+      ctx.fillText('BATAS BAWAH', 430, y + 24);
+      ctx.fillText('BATAS ATAS', 610, y + 24);
+      y += 35;
+
+      ctx.font = '13px "Space Grotesk", sans-serif';
+      for (const row of data.prediction) {
+        ctx.fillStyle = '#FFF78D';
+        ctx.fillRect(30, y, W - 60, 28);
+        ctx.strokeStyle = '#283F24';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(30, y, W - 60, 28);
+        ctx.fillStyle = '#283F24';
+        ctx.fillText(row.date, 45, y + 20);
+        ctx.fillText(`Rp ${row.predicted_price.toLocaleString('id-ID')}`, 250, y + 20);
+        ctx.fillText(`Rp ${row.lower_bound.toLocaleString('id-ID')}`, 430, y + 20);
+        ctx.fillText(`Rp ${row.upper_bound.toLocaleString('id-ID')}`, 610, y + 20);
+        y += 28;
+      }
+
+      // Footer
+      y += 30;
+      ctx.fillStyle = '#283F24';
+      ctx.font = 'bold 12px "Space Grotesk", sans-serif';
+      ctx.fillText('Powered by AgriCarta ML Engine — PyTorch LSTM · Confidence Interval 95%', 30, y);
+      ctx.fillText('© 2026 AgriCarta — Transparent Food Price Intelligence Platform', 30, y + 20);
+
+      // Convert canvas to blob and trigger download
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `Agrikarta_Report_${data.commodity}_${new Date().toISOString().split('T')[0]}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        setPdfLoading(false);
+      }, 'image/png');
+    } catch (err) {
+      console.error('PDF generation error:', err);
+      setPdfLoading(false);
+    }
+  }, [data]);
+
+  /* ═══ CSV Export (Fitur 5 spec) ═══ */
+  const handleExportCSV = useCallback(() => {
+    if (!data) return;
+    const header = 'Tanggal,Tipe,Harga (Rp),Lower Bound,Upper Bound\n';
+    const histRows = data.historical.map(h => `${h.date},Historis,${h.price},,`).join('\n');
+    const predRows = data.prediction.map(p => `${p.date},Prediksi,${p.predicted_price},${p.lower_bound},${p.upper_bound}`).join('\n');
+    const csvContent = header + histRows + '\n' + predRows;
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodeURI(csv));
+    link.href = url;
     link.setAttribute('download', `Prediksi_${data.commodity}_7Hari.csv`);
-    document.body.appendChild(link); link.click(); document.body.removeChild(link);
-  };
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [data]);
 
   const chartPoints: CombinedChartPoint[] = React.useMemo(() => {
     if (!data) return [];
@@ -97,7 +224,7 @@ export const PremiumDashboard: React.FC = () => {
   const priceDiff = target7Day - latestActual;
   const pctChange = latestActual > 0 ? ((priceDiff / latestActual) * 100).toFixed(2) : '0';
 
-  /* Custom Tooltip matching Neobrutalism */
+  /* Custom Tooltip (UI 04 spec: bg-white border-2 border-agri-dark p-3 font-bold text-agri-dark shadow-brutal-sm) */
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
     return (
@@ -118,7 +245,8 @@ export const PremiumDashboard: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-6 space-y-8 mt-28 pb-12">
-      {/* ═══ Top Banner ═══ */}
+      {/* ═══ Top Banner (UI 04 spec) ═══ */}
+      {/* bg-agri-amber text-agri-dark p-6 border-4 border-agri-dark rounded-xl font-black text-center text-2xl uppercase tracking-widest mt-28 mx-6 lg:mx-auto max-w-7xl shadow-brutal-base */}
       <div className="bg-agri-amber text-agri-dark p-6 border-4 border-agri-dark rounded-xl font-black text-center text-xl md:text-2xl uppercase tracking-widest shadow-brutal-base">
         ★ PREMIUM ACCESS: Prediksi Harga Komoditas H+7 ★
       </div>
@@ -168,12 +296,13 @@ export const PremiumDashboard: React.FC = () => {
           <p className="text-xl font-black text-agri-dark">
             Rp {data?.prediction[6]?.lower_bound?.toLocaleString('id-ID') || '—'} – Rp {data?.prediction[6]?.upper_bound?.toLocaleString('id-ID') || '—'}
           </p>
-          <p className="text-xs text-agri-dark/50 font-bold mt-1">Batas Atas & Batas Bawah Estimasi</p>
+          <p className="text-xs text-agri-dark/50 font-bold mt-1">Batas Atas &amp; Batas Bawah Estimasi</p>
         </div>
       </div>
 
-      {/* ═══ Recharts Graphic Container ═══ */}
-      <div className="bg-white p-6 border-4 border-agri-dark rounded-xl h-[400px] shadow-brutal-base">
+      {/* ═══ Recharts Graphic Container (UI 04 spec) ═══ */}
+      {/* bg-white p-6 border-4 border-agri-dark rounded-xl h-[400px] shadow-brutal-base */}
+      <div ref={chartRef} className="bg-white p-6 border-4 border-agri-dark rounded-xl h-[400px] shadow-brutal-base">
         {loading ? (
           <div className="h-full flex flex-col items-center justify-center space-y-3 text-agri-dark/60">
             <div className="w-10 h-10 border-4 border-agri-dark border-t-agri-amber rounded-full animate-spin" />
@@ -185,15 +314,16 @@ export const PremiumDashboard: React.FC = () => {
               <CartesianGrid strokeDasharray="3 3" stroke="#283F24" strokeOpacity={0.15} />
               <XAxis dataKey="formattedDate" stroke="#283F24" tick={{ fill: '#283F24', fontSize: 11, fontWeight: 700 }} />
               <YAxis stroke="#283F24" tick={{ fill: '#283F24', fontSize: 11, fontWeight: 700 }} tickFormatter={v => `Rp ${v.toLocaleString('id-ID')}`} />
+              {/* Tooltip cursor: thick vertical line #283F24 2px (UI 04 spec) */}
               <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#283F24', strokeWidth: 2 }} />
 
-              {/* Confidence Area */}
+              {/* Confidence Area (UI 04 spec): fill="#FFF78D" fillOpacity={0.8} stroke="none" */}
               <Area type="monotone" dataKey="confidenceBand" name="Confidence Band" fill="#FFF78D" fillOpacity={0.8} stroke="none" />
 
-              {/* Historical Line */}
+              {/* Historical Line (UI 04 spec): stroke="#467235" strokeWidth={4} activeDot={{ r: 8, stroke: '#283F24', strokeWidth: 2 }} */}
               <Line type="monotone" dataKey="actualPrice" name="Harga Aktual (Historis)" stroke="#467235" strokeWidth={4} dot={{ r: 3, fill: '#467235', stroke: '#283F24', strokeWidth: 2 }} activeDot={{ r: 8, stroke: '#283F24', strokeWidth: 2 }} connectNulls />
 
-              {/* Prediction Line */}
+              {/* Prediction Line (UI 04 spec): stroke="#FFBF00" strokeWidth={4} strokeDasharray="5 5" */}
               <Line type="monotone" dataKey="predictedPrice" name="Prediksi LSTM (7 Hari)" stroke="#FFBF00" strokeWidth={4} strokeDasharray="5 5" dot={{ r: 4, fill: '#FFBF00', stroke: '#283F24', strokeWidth: 2 }} activeDot={{ r: 8, stroke: '#283F24', strokeWidth: 2 }} connectNulls />
             </ComposedChart>
           </ResponsiveContainer>
@@ -216,7 +346,9 @@ export const PremiumDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* ═══ Action Buttons ═══ */}
+      {/* ═══ Action Buttons (UI 04 spec) ═══ */}
+      {/* Container: flex gap-4 mt-6 mx-6 lg:mx-auto max-w-7xl justify-end */}
+      {/* Button: bg-white border-4 border-agri-dark text-agri-dark font-black px-6 py-3 rounded-xl shadow-brutal-sm hover:-translate-y-1 hover:shadow-brutal-base transition-all flex items-center gap-2 */}
       <div className="flex gap-4 justify-end">
         <button
           onClick={handleDownloadPDF}

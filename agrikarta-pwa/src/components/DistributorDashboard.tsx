@@ -12,7 +12,9 @@ interface Distributor {
   };
 }
 
-/* ── Star Rating SVG Component ── */
+/* ── Star Rating SVG Component (UI 03 spec) ── */
+/* SVG Container: flex gap-1 */
+/* Star SVG: full → fill-agri-amber stroke-agri-dark stroke-2, empty → fill-white stroke-agri-dark stroke-2 */
 const StarRating: React.FC<{ score: number; max?: number }> = ({ score, max = 5 }) => {
   return (
     <div className="flex gap-1">
@@ -28,7 +30,10 @@ const StarRating: React.FC<{ score: number; max?: number }> = ({ score, max = 5 
   );
 };
 
-/* ── Progress Bar Component ── */
+/* ── Progress Bar Component (UI 03 spec) ── */
+/* Label: font-bold text-agri-dark mb-1 flex justify-between */
+/* Track: bg-white border-2 border-agri-dark h-6 rounded-full w-full overflow-hidden */
+/* Indicator: bg-agri-amber border-r-2 border-agri-dark h-full transition-all duration-700 ease-out */
 const ProgressBar: React.FC<{ label: string; value: number }> = ({ label, value }) => {
   return (
     <div className="mb-3">
@@ -38,7 +43,7 @@ const ProgressBar: React.FC<{ label: string; value: number }> = ({ label, value 
       </div>
       <div className="bg-white border-2 border-agri-dark h-6 rounded-full w-full overflow-hidden">
         <div
-          className="bg-agri-amber border-r-2 border-agri-dark h-full transition-all duration-700 ease-out rounded-full"
+          className="bg-agri-amber border-r-2 border-agri-dark h-full transition-all duration-700 ease-out"
           style={{ width: `${value}%` }}
         />
       </div>
@@ -60,19 +65,24 @@ export const DistributorDashboard: React.FC = () => {
 
   return (
     <>
-      {/* ═══ Distributor Grid ═══ */}
+      {/* ═══ Distributor Grid (UI 03 spec) ═══ */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 px-6 pb-12 max-w-7xl mx-auto mt-28">
         <div className="col-span-full mb-2">
-          <h1 className="text-3xl font-black text-agri-dark tracking-tight">Daftar Distributor & Pengepul</h1>
+          <h1 className="text-3xl font-black text-agri-dark tracking-tight">Daftar Distributor &amp; Pengepul</h1>
           <p className="text-agri-dark/60 font-medium mt-1">Klik kartu untuk melihat detail persona penilaian dari Google Form.</p>
         </div>
 
         {distributors.map((dist) => (
+          /* Distributor Card (UI 03 spec):
+             bg-agri-cream border-4 border-agri-dark rounded-xl p-6 shadow-brutal-card cursor-pointer
+             hover:-translate-y-1 hover:shadow-brutal-hover transition-all
+             active:translate-y-0 active:shadow-brutal-sm */
           <div
             key={dist.id}
             onClick={() => setSelected(dist)}
             className="bg-agri-cream border-4 border-agri-dark rounded-xl p-6 shadow-brutal-card cursor-pointer hover:-translate-y-1 hover:shadow-brutal-hover active:translate-y-0 active:shadow-brutal-sm transition-all"
           >
+            {/* Title (UI 03 spec: text-2xl font-black text-agri-dark mb-2) */}
             <h3 className="text-2xl font-black text-agri-dark mb-2">{dist.name}</h3>
             <div className="flex items-center gap-3">
               <StarRating score={dist.avgScore} />
@@ -83,7 +93,9 @@ export const DistributorDashboard: React.FC = () => {
         ))}
       </div>
 
-      {/* ═══ Persona Modal (Overlay) ═══ */}
+      {/* ═══ Persona Modal (UI 03 spec) ═══ */}
+      {/* Backdrop: fixed inset-0 z-[100] bg-agri-dark/80 backdrop-blur-sm flex items-center justify-center p-4 */}
+      {/* Modal: relative bg-white border-4 border-agri-dark shadow-[12px_12px_0_0_#FFBF00] p-8 max-w-md w-full rounded-xl */}
       {selected && (
         <div
           className="fixed inset-0 z-[100] bg-agri-dark/80 backdrop-blur-sm flex items-center justify-center p-4"
@@ -93,7 +105,7 @@ export const DistributorDashboard: React.FC = () => {
             className="relative bg-white border-4 border-agri-dark shadow-[12px_12px_0_0_#FFBF00] p-8 max-w-md w-full rounded-xl animate-fade-in-up"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Close Button */}
+            {/* Close Button (UI 03 spec): absolute top-4 right-4 bg-red-500 text-white font-black border-2 border-agri-dark px-3 py-1 rounded hover:bg-red-600 shadow-brutal-sm */}
             <button
               onClick={() => setSelected(null)}
               className="absolute top-4 right-4 bg-red-500 text-white font-black border-2 border-agri-dark px-3 py-1 rounded hover:bg-red-600 shadow-brutal-sm transition-all"
