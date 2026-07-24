@@ -2,23 +2,49 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ═══════════════════════════════════════════════════════════
-   Agrikarta Global Styles — Neobrutalism (Flat High Contrast)
-   ═══════════════════════════════════════════════════════════ */
+@layer base {
+  :root {
+    /* Shadcn UI Variables mapped to Neobrutalism Palette */
+    --background: 54 100% 77%; /* agri-cream: #FFF78D */
+    --foreground: 104 27% 19%; /* agri-dark: #283F24 */
+    
+    --primary: 104 36% 32%; /* agri-forest: #467235 */
+    --primary-foreground: 54 100% 77%; /* agri-cream */
+    
+    --secondary: 45 100% 50%; /* agri-amber: #FFBF00 */
+    --secondary-foreground: 104 27% 19%; /* agri-dark */
+    
+    --muted: 54 50% 85%;
+    --muted-foreground: 104 27% 30%;
+    
+    --accent: 45 100% 50%;
+    --accent-foreground: 104 27% 19%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 104 27% 19%; /* agri-dark */
+    --input: 104 27% 19%; /* agri-dark */
+    --ring: 104 27% 19%; /* agri-dark */
+    
+    --radius: 0rem; /* Sharp edges for Brutalism */
+  }
+}
 
 @layer base {
+  * {
+    @apply border-border;
+  }
   html {
     font-family: 'Space Grotesk', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
-
   body {
-    @apply bg-agri-cream text-agri-dark;
+    @apply bg-background text-foreground;
   }
-
   ::selection {
-    @apply bg-agri-amber text-agri-dark;
+    @apply bg-secondary text-secondary-foreground;
   }
 }
 
@@ -41,17 +67,14 @@
   width: 8px;
   height: 8px;
 }
-
 ::-webkit-scrollbar-track {
   background: #FFF78D;
 }
-
 ::-webkit-scrollbar-thumb {
   background: #283F24;
   border-radius: 0;
   border: 2px solid #FFF78D;
 }
-
 ::-webkit-scrollbar-thumb:hover {
   background: #467235;
 }
