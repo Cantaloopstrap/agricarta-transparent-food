@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import pino from 'pino';
-import { initWABot } from './bot/waConnection.js';
+import { initWABot, getConnectionState } from './bot/waConnection.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 import personaRoutes from './routes/personaRoutes.js';
 
@@ -64,6 +64,17 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'ok',
     service: 'Agrikarta Backend Microservice',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// WhatsApp Bot Connection Health Check
+app.get('/api/health/wa', (req, res) => {
+  const waState = getConnectionState();
+  const httpStatus = waState.isConnected ? 200 : 503;
+  res.status(httpStatus).json({
+    service: 'Agrikarta WhatsApp Bot',
+    ...waState,
     timestamp: new Date().toISOString()
   });
 });

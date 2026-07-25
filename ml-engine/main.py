@@ -5,8 +5,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.background import BackgroundScheduler
 import asyncio
 import datetime
+import pytz
 from db_client import get_supabase_client
-from scraper import scrape_sp2kp_data, DEFAULT_COMMODITIES
+from scraper import scrape_sp2kp_data, DEFAULT_COMMODITIES, get_db_commodity_id
 from predictor import run_lstm_prediction
 
 # Configure standard Python logging
@@ -52,14 +53,23 @@ def run_scheduled_tasks():
         
     loop.close()
 
-scheduler = BackgroundScheduler()
+WIB = pytz.timezone('Asia/Jakarta')
+scheduler = BackgroundScheduler(timezone=WIB)
 
 @app.on_event("startup")
 async def startup_event():
     logger.info("Agrikarta ML Engine FastAPI service starting up on port 8000...")
-    # Schedule daily jobs: Scraper at 23:00, LSTM predictions at 23:30
-    scheduler.add_job(run_scheduled_tasks, trigger='cron', hour=23, minute=0, id="daily_sp2kp_scrape_and_ml")
+    # Schedule daily jobs: Scraper + LSTM predictions at 23:00 WIB (UTC+7)
+    scheduler.add_job(
+        run_scheduled_tasks,
+        trigger='cron',
+        hour=23,
+        minute=0,
+        timezone=WIB,
+        id="daily_sp2kp_scrape_and_ml"
+    )
     scheduler.start()
+    logger.info("APScheduler started: daily scrape+predict job scheduled at 23:00 WIB (Asia/Jakarta).")
     
     # Run initial bootstrap check on startup asynchronously
     asyncio.create_task(initial_bootstrap())
@@ -107,10 +117,11 @@ async def get_price_predictions(commodity: str = Query("jagung", description="Co
     
     if supabase:
         try:
+            db_id = get_db_commodity_id(c_id)
             # Query last 30 days of historical actual prices
             hist_res = supabase.table("daily_prices") \
                 .select("date, actual_price") \
-                .eq("commodity_id", c_id) \
+                .eq("commodity_id", db_id) \
                 .order("date", desc=True) \
                 .limit(30) \
                 .execute()
@@ -128,7 +139,7 @@ async def get_price_predictions(commodity: str = Query("jagung", description="Co
             # Query 7 predicted days (H+1 to H+7)
             pred_res = supabase.table("price_predictions") \
                 .select("target_date, predicted_price, confidence_low, confidence_high") \
-                .eq("commodity_id", c_id) \
+                .eq("commodity_id", db_id) \
                 .order("target_date", desc=False) \
                 .limit(7) \
                 .execute()
@@ -152,8 +163,9 @@ async def get_price_predictions(commodity: str = Query("jagung", description="Co
         await run_lstm_prediction(c_id)
         
         if supabase:
-            hist_res = supabase.table("daily_prices").select("date, actual_price").eq("commodity_id", c_id).order("date", desc=True).limit(30).execute()
-            pred_res = supabase.table("price_predictions").select("target_date, predicted_price, confidence_low, confidence_high").eq("commodity_id", c_id).order("target_date", desc=False).limit(7).execute()
+            db_id = get_db_commodity_id(c_id)
+            hist_res = supabase.table("daily_prices").select("date, actual_price").eq("commodity_id", db_id).order("date", desc=True).limit(30).execute()
+            pred_res = supabase.table("price_predictions").select("target_date, predicted_price, confidence_low, confidence_high").eq("commodity_id", db_id).order("target_date", desc=False).limit(7).execute()
             
             if hist_res.data:
                 historical_list = [{"date": r["date"], "price": float(r["actual_price"])} for r in reversed(hist_res.data)]

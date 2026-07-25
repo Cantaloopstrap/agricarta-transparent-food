@@ -1,94 +1,116 @@
 import React, { useState } from 'react';
+import { LandingPage } from './components/LandingPage';
 import { PremiumDashboard } from './components/PremiumDashboard';
 import { PetaniDashboard } from './components/PetaniDashboard';
 import { DistributorDashboard } from './components/DistributorDashboard';
 import { AdminDashboard } from './components/AdminDashboard';
-import { Sparkles, Sprout, Truck, ShieldAlert, LayoutDashboard, Database } from 'lucide-react';
+
+type TabKey = 'landing' | 'premium' | 'petani' | 'distributor' | 'admin';
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'premium' | 'petani' | 'distributor' | 'admin'>('premium');
+  const [activeTab, setActiveTab] = useState<TabKey>('landing');
+
+  // UI 05: Admin has its own full-screen layout with sidebar — NO global navbar
+  if (activeTab === 'admin') {
+    return (
+      <AdminDashboard onBack={() => setActiveTab('landing')} />
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif]">
-      {/* Global Navigation Header */}
-      <header className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/80 px-4 lg:px-8 py-3.5">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActiveTab('premium')}>
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-              <Database className="w-5 h-5 text-slate-950 stroke-[2.5]" />
-            </div>
-            <div>
-              <span className="font-black text-xl tracking-tight text-white">AgriCarta</span>
-              <span className="ml-2 text-[10px] font-bold uppercase tracking-widest bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20">
-                PWA Platform
-              </span>
-            </div>
+    <div className="min-h-screen bg-agri-cream text-agri-dark flex flex-col">
+
+      {/* ═══ Global Navbar (Shared Component — Neobrutalism) ═══ */}
+      <header className="fixed w-full top-0 z-50 px-6 py-4 flex justify-between items-center bg-agri-dark border-b-4 border-agri-dark">
+        <div
+          className="flex items-center space-x-3 cursor-pointer"
+          onClick={() => setActiveTab('landing')}
+        >
+          {/* Logo Mark */}
+          <div className="w-9 h-9 rounded-lg bg-agri-amber border-2 border-agri-dark flex items-center justify-center shadow-brutal-sm">
+            <svg className="w-5 h-5 text-agri-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <ellipse cx="12" cy="6" rx="8" ry="3"/>
+              <path d="M4,6 v4 c0,1.66 3.58,3 8,3 s8,-1.34 8,-3 v-4"/>
+              <path d="M4,10 v4 c0,1.66 3.58,3 8,3 s8,-1.34 8,-3 v-4"/>
+              <path d="M4,14 v4 c0,1.66 3.58,3 8,3 s8,-1.34 8,-3 v-4"/>
+            </svg>
           </div>
+          <span className="text-white font-black text-2xl tracking-tight">AgriCarta</span>
+        </div>
 
-          {/* Navigation Bar */}
-          <nav className="flex items-center space-x-1 sm:space-x-2 bg-slate-900/80 p-1.5 rounded-2xl border border-slate-800">
+        {/* Navigation Tabs */}
+        <nav className="hidden md:flex items-center space-x-1">
+          {([
+            { key: 'landing' as TabKey, label: 'Beranda' },
+            { key: 'petani' as TabKey, label: 'Petani' },
+            { key: 'distributor' as TabKey, label: 'Distributor' },
+            { key: 'premium' as TabKey, label: '★ Premium' },
+          ]).map(item => (
             <button
-              onClick={() => setActiveTab('premium')}
-              className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition ${
-                activeTab === 'premium'
-                  ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              key={item.key}
+              onClick={() => setActiveTab(item.key)}
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                activeTab === item.key
+                  ? 'bg-white text-agri-dark border-2 border-agri-dark shadow-brutal-sm'
+                  : 'text-white/80 hover:text-white hover:bg-white/10'
               }`}
             >
-              <Sparkles className="w-4 h-4" />
-              <span className="hidden sm:inline">UI 04 - Premium</span>
+              {item.label}
             </button>
+          ))}
+        </nav>
 
-            <button
-              onClick={() => setActiveTab('petani')}
-              className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition ${
-                activeTab === 'petani'
-                  ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-              }`}
-            >
-              <Sprout className="w-4 h-4" />
-              <span className="hidden sm:inline">UI 02 - Petani</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('distributor')}
-              className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition ${
-                activeTab === 'distributor'
-                  ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-              }`}
-            >
-              <Truck className="w-4 h-4" />
-              <span className="hidden sm:inline">UI 03 - Distributor</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('admin')}
-              className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition ${
-                activeTab === 'admin'
-                  ? 'bg-rose-500 text-white shadow-md shadow-rose-500/20'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-              }`}
-            >
-              <ShieldAlert className="w-4 h-4" />
-              <span className="hidden sm:inline">UI 05 - Admin</span>
-            </button>
-          </nav>
+        {/* CTA Button */}
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={() => setActiveTab('admin')}
+            className="hidden md:block text-white/60 hover:text-white text-xs font-bold transition-colors"
+          >
+            Admin
+          </button>
+          <button
+            onClick={() => setActiveTab('premium')}
+            className="bg-agri-amber text-agri-dark font-black px-4 py-2 rounded-lg border-2 border-agri-dark shadow-[4px_4px_0_0_#000] hover:-translate-y-1 hover:shadow-[6px_6px_0_0_#000] transition-all"
+          >
+            Beli Premium
+          </button>
         </div>
       </header>
 
-      {/* Main App Content View */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-8">
+      {/* Mobile Tab Bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-agri-dark border-t-4 border-agri-dark flex">
+        {([
+          { key: 'landing' as TabKey, label: '🏠' },
+          { key: 'petani' as TabKey, label: '🌾' },
+          { key: 'distributor' as TabKey, label: '🚛' },
+          { key: 'premium' as TabKey, label: '⭐' },
+          { key: 'admin' as TabKey, label: '🔒' },
+        ]).map(item => (
+          <button
+            key={item.key}
+            onClick={() => setActiveTab(item.key)}
+            className={`flex-1 py-3 text-xl transition-all ${
+              activeTab === item.key
+                ? 'bg-agri-amber text-agri-dark'
+                : 'text-white/70 hover:bg-white/10'
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ═══ Main Content View ═══ */}
+      <main className="flex-1 pt-[72px] pb-16 md:pb-0">
+        {activeTab === 'landing' && <LandingPage onNavigate={setActiveTab} />}
         {activeTab === 'premium' && <PremiumDashboard />}
         {activeTab === 'petani' && <PetaniDashboard />}
         {activeTab === 'distributor' && <DistributorDashboard />}
-        {activeTab === 'admin' && <AdminDashboard />}
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-800/80 py-6 px-4 text-center text-xs text-slate-500">
-        <p>© 2026 AgriCarta Platform — Transparent Food Price Intelligence Microservices.</p>
+      <footer className="bg-agri-dark border-t-4 border-agri-dark py-6 px-6 text-center hidden md:block">
+        <p className="text-white/60 text-sm font-bold">© 2026 AgriCarta — Transparent Food Price Intelligence Platform.</p>
       </footer>
     </div>
   );

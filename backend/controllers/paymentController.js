@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import midtransClient from 'midtrans-client';
 import jwt from 'jsonwebtoken';
 import pino from 'pino';
@@ -12,6 +13,35 @@ const snap = new midtransClient.Snap({
   serverKey: process.env.MIDTRANS_SERVER_KEY || 'SB-Mid-server-placeholder',
   clientKey: process.env.MIDTRANS_CLIENT_KEY || 'SB-Mid-client-placeholder'
 });
+
+// ─── Midtrans Signature Verification (SHA512) ──────────────────────────────
+
+/**
+ * Verifies the Midtrans webhook notification signature.
+ * Formula: SHA512(order_id + status_code + gross_amount + server_key)
+ * @param {object} notification - The Midtrans webhook payload
+ * @param {string} serverKey - Midtrans Server Key from environment
+ * @returns {{ valid: boolean, computed: string, received: string }}
+ */
+function verifyMidtransSignature(notification, serverKey) {
+  const { order_id, status_code, gross_amount, signature_key } = notification;
+
+  if (!order_id || !status_code || !gross_amount || !signature_key) {
+    return { valid: false, computed: '', received: signature_key || '' };
+  }
+
+  const payload = `${order_id}${status_code}${gross_amount}${serverKey}`;
+  const computedSignature = crypto
+    .createHash('sha512')
+    .update(payload)
+    .digest('hex');
+
+  return {
+    valid: computedSignature === signature_key,
+    computed: computedSignature,
+    received: signature_key
+  };
+}
 
 // Utility to format phone numbers to standard 628...
 function formatPhoneNumber(phone) {
@@ -91,11 +121,36 @@ export async function createCheckout(req, res) {
 /**
  * POST /api/midtrans-webhook
  * Midtrans settlement webhook notification handler
+ * 
+ * SECURITY: Validates SHA512 Signature Key before processing.
+ * Formula: SHA512(order_id + status_code + gross_amount + server_key)
  */
 export async function handleMidtransWebhook(req, res) {
   try {
     const notification = req.body;
     logger.info({ notification }, 'Received Midtrans Webhook Notification');
+
+    // ─── SECURITY GATE: Verify Midtrans Signature Key ────────────────────
+    const serverKey = process.env.MIDTRANS_SERVER_KEY || 'SB-Mid-server-placeholder';
+    const signatureResult = verifyMidtransSignature(notification, serverKey);
+
+    if (!signatureResult.valid) {
+      logger.error(
+        {
+          order_id: notification.order_id,
+          received_signature: signatureResult.received,
+          computed_signature: signatureResult.computed,
+          ip: req.ip || req.headers['x-forwarded-for']
+        },
+        '🚨 SECURITY ALERT: Invalid Midtrans webhook signature! Possible spoofing attempt.'
+      );
+      return res.status(403).json({
+        error: 'Forbidden: Invalid signature key. This incident has been logged.'
+      });
+    }
+
+    logger.info({ order_id: notification.order_id }, '✅ Midtrans signature verification passed.');
+    // ─── END SECURITY GATE ───────────────────────────────────────────────
 
     const orderId = notification.order_id;
     const transactionStatus = notification.transaction_status;

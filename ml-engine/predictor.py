@@ -49,12 +49,15 @@ def generate_synthetic_history(commodity_id: str, days=30):
         
     return synthetic
 
+from scraper import get_db_commodity_id
+
 async def run_lstm_prediction(commodity_id: str):
     """
     Executes PyTorch LSTM inference for H+1 to H+7 price predictions with Confidence Intervals.
     """
     logger.info(f"Running LSTM prediction for commodity: {commodity_id}")
     supabase = get_supabase_client()
+    db_id = get_db_commodity_id(commodity_id)
     
     # 1. Fetch historical data from Supabase
     historical_data = []
@@ -62,7 +65,7 @@ async def run_lstm_prediction(commodity_id: str):
         try:
             res = supabase.table("daily_prices") \
                 .select("date, actual_price") \
-                .eq("commodity_id", commodity_id) \
+                .eq("commodity_id", db_id) \
                 .order("date", desc=False) \
                 .limit(60) \
                 .execute()
@@ -73,12 +76,12 @@ async def run_lstm_prediction(commodity_id: str):
     # Fallback to synthetic historical baseline if data points < 7
     if len(historical_data) < 7:
         logger.info(f"Insufficient data points ({len(historical_data)}) for {commodity_id}. Using historical baseline generation...")
-        historical_data = generate_synthetic_history(commodity_id, days=30)
+        historical_data = generate_synthetic_history(str(commodity_id), days=30)
         
         # Seed daily_prices in Supabase
         if supabase:
             try:
-                seed_records = [{"date": h["date"], "commodity_id": commodity_id, "actual_price": h["actual_price"]} for h in historical_data]
+                seed_records = [{"date": h["date"], "commodity_id": db_id, "actual_price": h["actual_price"]} for h in historical_data]
                 supabase.table("daily_prices").upsert(seed_records, on_conflict="date,commodity_id").execute()
             except Exception as e:
                 logger.warning(f"Warning seeding daily_prices: {e}")
@@ -128,7 +131,7 @@ async def run_lstm_prediction(commodity_id: str):
 
         final_predictions.append({
             "target_date": target_date,
-            "commodity_id": commodity_id,
+            "commodity_id": db_id,
             "predicted_price": float(round(pred_val, 2)),
             "confidence_low": lower_bound,
             "confidence_high": upper_bound,
@@ -138,7 +141,7 @@ async def run_lstm_prediction(commodity_id: str):
     # 5. Database Mutation: Delete existing future predictions for commodity and insert new
     if supabase and final_predictions:
         try:
-            supabase.table("price_predictions").delete().eq("commodity_id", commodity_id).execute()
+            supabase.table("price_predictions").delete().eq("commodity_id", db_id).execute()
             supabase.table("price_predictions").insert(final_predictions).execute()
             logger.info(f"Successfully updated 7-day predictions for commodity '{commodity_id}' in Supabase.")
         except Exception as db_err:

@@ -1,0 +1,88 @@
+version: '3.8'
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# AgriCarta Docker Compose — Full Stack Orchestration
+# Services: Backend (Node.js + WA Bot), Frontend (React PWA), ML Engine (Python)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+services:
+  # ─── Backend: Node.js Express + WhatsApp Baileys Bot ─────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: agrikarta-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./backend/.env
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+    volumes:
+      # Persist WA session auth files across restarts
+      - wa_session_data:/app/bot/auth_info_baileys
+    networks:
+      - agrikarta-net
+    depends_on:
+      - ml-engine
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5000/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ─── Frontend: React Vite PWA (Nginx Production Serve) ──────────────────
+  frontend:
+    build:
+      context: ./agrikarta-pwa
+      dockerfile: Dockerfile
+    container_name: agrikarta-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    networks:
+      - agrikarta-net
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ─── ML Engine: Python FastAPI + PyTorch LSTM + APScheduler ─────────────
+  ml-engine:
+    build:
+      context: ./ml-engine
+      dockerfile: Dockerfile
+    container_name: agrikarta-ml-engine
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./ml-engine/.env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TZ=Asia/Jakarta
+    networks:
+      - agrikarta-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+# ─── Shared Network ──────────────────────────────────────────────────────────
+networks:
+  agrikarta-net:
+    driver: bridge
+    name: agrikarta-net
+
+# ─── Persistent Volumes ─────────────────────────────────────────────────────
+volumes:
+  wa_session_data:
+    name: agrikarta-wa-session
