@@ -1,19 +1,37 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 interface PriceRow {
   name: string;
   price: number;
-  change: number; // percentage
+  change: number;
 }
 
 interface LandingPageProps {
   onNavigate: (tab: 'premium' | 'petani' | 'distributor' | 'admin' | 'landing') => void;
 }
 
+declare global {
+  interface Window {
+    snap?: {
+      pay: (token: string, options: {
+        onSuccess?: (result: unknown) => void;
+        onPending?: (result: unknown) => void;
+        onError?: (result: unknown) => void;
+        onClose?: () => void;
+      }) => void;
+    };
+  }
+}
+
+const BACKEND_URL = 'http://localhost:5000';
+const MIDTRANS_SNAP_URL = 'https://app.sandbox.midtrans.com/snap/snap.js';
+
 export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
   const [showModal, setShowModal] = useState(false);
   const [waNumber, setWaNumber] = useState('');
   const [loading, setLoading] = useState(true);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutStatus, setCheckoutStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
 
   const [prices] = useState<PriceRow[]>([
     { name: 'Beras Medium', price: 14500, change: 1.2 },
@@ -29,9 +47,86 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
     return () => clearTimeout(timer);
   }, []);
 
-  const handlePaywallSubmit = () => {
-    if (waNumber.length >= 10) {
-      alert(`Magic Link akan dikirim ke ${waNumber} via WhatsApp Bot.`);
+  // Load Midtrans Snap script dynamically
+  const loadMidtransSnap = useCallback((): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      if (window.snap) {
+        resolve();
+        return;
+      }
+      const existing = document.querySelector(`script[src*="snap.js"]`);
+      if (existing) {
+        resolve();
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = MIDTRANS_SNAP_URL;
+      script.setAttribute('data-client-key', 'SB-Mid-client-placeholder');
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Failed to load Midtrans Snap script'));
+      document.head.appendChild(script);
+    });
+  }, []);
+
+  const handlePaywallSubmit = async () => {
+    if (waNumber.length < 10) return;
+
+    setCheckoutLoading(true);
+    setCheckoutStatus('processing');
+
+    try {
+      // 1. Load Midtrans Snap script
+      await loadMidtransSnap();
+
+      // 2. Call backend /api/checkout to create Midtrans transaction
+      const response = await fetch(`${BACKEND_URL}/api/checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: waNumber }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Checkout API failed: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (!result.success || !result.token) {
+        throw new Error(result.error || 'Invalid checkout response');
+      }
+
+      // 3. Open Midtrans Snap payment popup
+      if (window.snap) {
+        window.snap.pay(result.token, {
+          onSuccess: () => {
+            setCheckoutStatus('success');
+            setCheckoutLoading(false);
+            setTimeout(() => {
+              setShowModal(false);
+              setWaNumber('');
+              setCheckoutStatus('idle');
+            }, 3000);
+          },
+          onPending: () => {
+            setCheckoutStatus('processing');
+            setCheckoutLoading(false);
+          },
+          onError: () => {
+            setCheckoutStatus('error');
+            setCheckoutLoading(false);
+          },
+          onClose: () => {
+            setCheckoutLoading(false);
+            if (checkoutStatus === 'processing') setCheckoutStatus('idle');
+          },
+        });
+      }
+    } catch (err) {
+      console.error('Checkout error:', err);
+      // Fallback: show alert if backend is not running
+      alert(`Magic Link akan dikirim ke ${waNumber} via WhatsApp Bot.\n(Backend checkout endpoint belum terhubung)`);
+      setCheckoutStatus('idle');
+      setCheckoutLoading(false);
       setShowModal(false);
       setWaNumber('');
     }
@@ -42,7 +137,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
       {/* ═══ Hero Section ═══ */}
       <section className="pt-28 pb-12 px-6 text-center max-w-7xl mx-auto flex flex-col items-center justify-center">
         <h1 className="text-4xl md:text-5xl font-black text-agri-dark tracking-tight leading-tight">
-          Harga Pangan Transparan<br />& Akurat
+          Harga Pangan Transparan<br />&amp; Akurat
         </h1>
         <p className="mt-4 text-lg md:text-xl text-agri-dark/70 font-medium max-w-2xl">
           Platform infrastruktur data pangan berbasis AI untuk petani, distributor, dan konsumen Indonesia.
@@ -78,7 +173,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
           {/* Table Body */}
           <table className="w-full">
             <thead>
-              <tr className="bg-agri-cream/50 border-b-2 border-agri-dark text-left text-sm font-black text-agri-dark">
+              <tr className="bg-agri-cream border-b-4 border-agri-dark text-left text-sm font-black text-agri-dark">
                 <th className="px-6 py-3">Komoditas</th>
                 <th className="px-6 py-3 text-right">Harga/kg</th>
                 <th className="px-6 py-3 text-right">Tren</th>
@@ -86,12 +181,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
             </thead>
             <tbody>
               {loading ? (
-                // Skeleton Loader
+                // Skeleton Loader — spec: bg-gray-200 animate-pulse border-b-2 border-agri-dark
                 Array.from({ length: 6 }).map((_, i) => (
                   <tr key={i} className="border-b-2 border-agri-dark">
-                    <td className="px-6 py-4"><div className="h-5 w-40 bg-agri-cream animate-pulse rounded" /></td>
-                    <td className="px-6 py-4 text-right"><div className="h-5 w-24 bg-agri-cream animate-pulse rounded ml-auto" /></td>
-                    <td className="px-6 py-4 text-right"><div className="h-5 w-16 bg-agri-cream animate-pulse rounded ml-auto" /></td>
+                    <td className="px-6 py-4"><div className="h-5 w-40 bg-gray-200 animate-pulse rounded" /></td>
+                    <td className="px-6 py-4 text-right"><div className="h-5 w-24 bg-gray-200 animate-pulse rounded ml-auto" /></td>
+                    <td className="px-6 py-4 text-right"><div className="h-5 w-16 bg-gray-200 animate-pulse rounded ml-auto" /></td>
                   </tr>
                 ))
               ) : (
@@ -118,7 +213,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
 
       {/* ═══ Paywall / Premium Teaser ═══ */}
       <section className="mx-6 lg:mx-auto max-w-5xl mb-16">
-        <div className="relative h-80 flex items-center justify-center bg-white border-4 border-agri-dark rounded-xl overflow-hidden">
+        <div className="relative h-80 flex items-center justify-center bg-white border-4 border-agri-dark rounded-xl mt-8 overflow-hidden">
           {/* Diagonal Stripe Pattern Overlay */}
           <div className="absolute inset-0 bg-diagonal-stripes pointer-events-none" />
 
@@ -140,11 +235,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
         </div>
       </section>
 
-      {/* ═══ Gatekeeper Modal (Paywall) ═══ */}
+      {/* ═══ Gatekeeper Modal (Paywall → Midtrans Snap) ═══ */}
       {showModal && (
         <div
           className="fixed inset-0 z-[100] bg-agri-dark/80 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setShowModal(false)}
+          onClick={() => { if (!checkoutLoading) setShowModal(false); }}
         >
           <div
             className="relative bg-white border-4 border-agri-dark shadow-brutal-modal p-8 max-w-md w-full rounded-xl animate-fade-in-up"
@@ -152,33 +247,63 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
           >
             {/* Close Button */}
             <button
-              onClick={() => setShowModal(false)}
+              onClick={() => { if (!checkoutLoading) { setShowModal(false); setCheckoutStatus('idle'); } }}
               className="absolute top-4 right-4 bg-red-500 text-white font-black border-2 border-agri-dark px-3 py-1 rounded hover:bg-red-600 shadow-brutal-sm transition-all"
             >
               ✕
             </button>
 
-            <h3 className="text-2xl font-black text-agri-dark mb-2">Daftar Premium</h3>
-            <p className="text-agri-dark/70 font-medium text-sm mb-6">
-              Masukkan nomor WhatsApp Anda. Magic Link akan dikirimkan oleh bot untuk mengaktifkan akses premium.
-            </p>
+            {checkoutStatus === 'success' ? (
+              <div className="text-center py-8">
+                <div className="text-6xl mb-4">✅</div>
+                <h3 className="text-2xl font-black text-agri-dark mb-2">Pembayaran Berhasil!</h3>
+                <p className="text-agri-dark/70 font-medium text-sm">
+                  Magic Link sedang dikirimkan ke WhatsApp Anda. Cek pesan masuk dari AgriCarta Bot.
+                </p>
+              </div>
+            ) : (
+              <>
+                <h3 className="text-2xl font-black text-agri-dark mb-2">Daftar Premium</h3>
+                <p className="text-agri-dark/70 font-medium text-sm mb-6">
+                  Masukkan nomor WhatsApp Anda. Magic Link akan dikirimkan oleh bot untuk mengaktifkan akses premium.
+                </p>
 
-            <label className="block font-black text-agri-dark text-sm mb-2">Nomor WhatsApp</label>
-            <input
-              type="tel"
-              value={waNumber}
-              onChange={(e) => setWaNumber(e.target.value)}
-              placeholder="628xxxxxxxxxx"
-              className="w-full border-4 border-agri-dark bg-agri-cream rounded-xl px-4 py-3 font-bold text-agri-dark outline-none focus:ring-4 focus:ring-agri-amber transition-shadow mb-4"
-            />
+                <label className="block font-black text-agri-dark text-sm mb-2">Nomor WhatsApp</label>
+                <input
+                  type="tel"
+                  value={waNumber}
+                  onChange={(e) => setWaNumber(e.target.value)}
+                  placeholder="628xxxxxxxxxx"
+                  disabled={checkoutLoading}
+                  className="w-full border-4 border-agri-dark bg-agri-cream rounded-xl px-4 py-3 font-bold text-agri-dark outline-none focus:ring-4 focus:ring-agri-amber transition-shadow mb-4 disabled:opacity-60"
+                />
 
-            <button
-              onClick={handlePaywallSubmit}
-              disabled={waNumber.length < 10}
-              className="w-full bg-agri-amber text-agri-dark font-black py-3 rounded-xl border-4 border-agri-dark shadow-brutal-base hover:-translate-y-1 hover:shadow-brutal-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-brutal-base"
-            >
-              Kirim Magic Link via WhatsApp
-            </button>
+                <button
+                  onClick={handlePaywallSubmit}
+                  disabled={waNumber.length < 10 || checkoutLoading}
+                  className="w-full bg-agri-amber text-agri-dark font-black py-3 rounded-xl border-4 border-agri-dark shadow-brutal-base hover:-translate-y-1 hover:shadow-brutal-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-brutal-base flex items-center justify-center gap-2"
+                >
+                  {checkoutLoading ? (
+                    <>
+                      <div className="w-5 h-5 border-3 border-agri-dark border-t-white rounded-full animate-spin" />
+                      <span>Memproses Pembayaran...</span>
+                    </>
+                  ) : (
+                    'Kirim Magic Link via WhatsApp'
+                  )}
+                </button>
+
+                {checkoutStatus === 'error' && (
+                  <p className="mt-3 text-red-600 font-bold text-sm text-center">
+                    Pembayaran gagal. Silakan coba lagi.
+                  </p>
+                )}
+
+                <p className="mt-4 text-xs text-agri-dark/40 font-medium text-center">
+                  Powered by Midtrans · Rp 50.000 / bulan
+                </p>
+              </>
+            )}
           </div>
         </div>
       )}

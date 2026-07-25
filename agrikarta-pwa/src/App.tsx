@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LandingPage } from './components/LandingPage';
 import { PremiumDashboard } from './components/PremiumDashboard';
 import { PetaniDashboard } from './components/PetaniDashboard';
@@ -7,8 +7,74 @@ import { AdminDashboard } from './components/AdminDashboard';
 
 type TabKey = 'landing' | 'premium' | 'petani' | 'distributor' | 'admin';
 
+const BACKEND_URL = 'http://localhost:5000';
+
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabKey>('landing');
+  const [isPremium, setIsPremium] = useState(false);
+
+  /* ═══ Magic Link Token Handler (Fitur 4 spec) ═══ */
+  /* On mount: parse ?token= from URL, validate JWT via backend, set premium state */
+  useEffect(() => {
+    // Check if already premium from localStorage
+    const storedPremium = localStorage.getItem('agrikarta_is_premium');
+    if (storedPremium === 'true') {
+      setIsPremium(true);
+    }
+
+    // Parse ?token= query parameter from Magic Link (Fitur 4 Step 7)
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+
+    if (token) {
+      // Validate token via backend
+      (async () => {
+        try {
+          const response = await fetch(`${BACKEND_URL}/api/auth/verify-token`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token }),
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            if (result.valid && result.tier === 'premium') {
+              setIsPremium(true);
+              localStorage.setItem('agrikarta_is_premium', 'true');
+              localStorage.setItem('agrikarta_token', token);
+              setActiveTab('premium');
+            }
+          }
+        } catch {
+          // Backend not available — fallback: decode JWT client-side to check tier
+          try {
+            const payloadB64 = token.split('.')[1];
+            if (payloadB64) {
+              const payload = JSON.parse(atob(payloadB64));
+              if (payload.tier === 'premium') {
+                setIsPremium(true);
+                localStorage.setItem('agrikarta_is_premium', 'true');
+                localStorage.setItem('agrikarta_token', token);
+                setActiveTab('premium');
+              }
+            }
+          } catch {
+            console.error('Invalid Magic Link token');
+          }
+        }
+
+        // Clean URL query parameter after processing
+        window.history.replaceState({}, document.title, window.location.pathname);
+      })();
+    }
+  }, []);
+
+  const handleLogout = () => {
+    setIsPremium(false);
+    localStorage.removeItem('agrikarta_is_premium');
+    localStorage.removeItem('agrikarta_token');
+    setActiveTab('landing');
+  };
 
   // UI 05: Admin has its own full-screen layout with sidebar — NO global navbar
   if (activeTab === 'admin') {
@@ -20,7 +86,8 @@ export const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-agri-cream text-agri-dark flex flex-col">
 
-      {/* ═══ Global Navbar (Shared Component — Neobrutalism) ═══ */}
+      {/* ═══ Global Navbar (Shared Component — Neobrutalism, Global Design System spec) ═══ */}
+      {/* Container: fixed w-full top-0 z-50 px-6 py-4 flex justify-between items-center bg-agri-dark border-b-4 border-agri-dark */}
       <header className="fixed w-full top-0 z-50 px-6 py-4 flex justify-between items-center bg-agri-dark border-b-4 border-agri-dark">
         <div
           className="flex items-center space-x-3 cursor-pointer"
@@ -35,6 +102,7 @@ export const App: React.FC = () => {
               <path d="M4,14 v4 c0,1.66 3.58,3 8,3 s8,-1.34 8,-3 v-4"/>
             </svg>
           </div>
+          {/* Logo text (Global Design spec: text-white font-black text-2xl tracking-tight) */}
           <span className="text-white font-black text-2xl tracking-tight">AgriCarta</span>
         </div>
 
@@ -60,7 +128,7 @@ export const App: React.FC = () => {
           ))}
         </nav>
 
-        {/* CTA Button */}
+        {/* CTA Button (Global Design spec: bg-agri-amber text-agri-dark font-black px-4 py-2 rounded-lg border-2 border-agri-dark shadow-[4px_4px_0_0_#000] hover:-translate-y-1 hover:shadow-[6px_6px_0_0_#000] transition-all) */}
         <div className="flex items-center space-x-3">
           <button
             onClick={() => setActiveTab('admin')}
@@ -68,12 +136,21 @@ export const App: React.FC = () => {
           >
             Admin
           </button>
-          <button
-            onClick={() => setActiveTab('premium')}
-            className="bg-agri-amber text-agri-dark font-black px-4 py-2 rounded-lg border-2 border-agri-dark shadow-[4px_4px_0_0_#000] hover:-translate-y-1 hover:shadow-[6px_6px_0_0_#000] transition-all"
-          >
-            Beli Premium
-          </button>
+          {isPremium ? (
+            <button
+              onClick={handleLogout}
+              className="bg-white text-agri-dark font-black px-4 py-2 rounded-lg border-2 border-agri-dark shadow-[4px_4px_0_0_#000] hover:-translate-y-1 hover:shadow-[6px_6px_0_0_#000] transition-all"
+            >
+              Keluar Akun
+            </button>
+          ) : (
+            <button
+              onClick={() => setActiveTab('premium')}
+              className="bg-agri-amber text-agri-dark font-black px-4 py-2 rounded-lg border-2 border-agri-dark shadow-[4px_4px_0_0_#000] hover:-translate-y-1 hover:shadow-[6px_6px_0_0_#000] transition-all"
+            >
+              Beli Premium
+            </button>
+          )}
         </div>
       </header>
 

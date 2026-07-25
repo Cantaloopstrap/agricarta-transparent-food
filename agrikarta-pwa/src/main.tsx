@@ -14,7 +14,7 @@ const updateSW = registerSW({
   onOfflineReady() {
     console.log('[AgriCarta PWA] App ready for offline use.');
   },
-  onRegisteredSW(swUrl, registration) {
+  onRegisteredSW(swUrl?: string, registration?: ServiceWorkerRegistration) {
     console.log(`[AgriCarta PWA] Service Worker registered: ${swUrl}`);
     // Check for updates every hour
     if (registration) {
@@ -23,7 +23,7 @@ const updateSW = registerSW({
       }, 60 * 60 * 1000);
     }
   },
-  onRegisterError(error) {
+  onRegisterError(error: unknown) {
     console.error('[AgriCarta PWA] Service Worker registration failed:', error);
   }
 });
